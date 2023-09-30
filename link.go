@@ -58,7 +58,7 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 	}
 	p, err := exec.LookPath(program)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	err = exec.Command(p, rawURL).Run()
 	// _, err = os.StartProcess(p, []string{p, rawURL}, &os.ProcAttr{Env: os.Environ()})
@@ -179,46 +179,4 @@ func streamToUrlString(data sc.StreamData, method OpenMethod) (string, error) {
 	u.Scheme = "https"
 	u.RawQuery = q.Encode()
 	return u.String(), nil
-}
-
-func embedString(rawURL string) (string, error) {
-	// TODO: Better ways of splitting the url path fields?
-	URL, err := url.Parse(rawURL)
-	if err != nil {
-		return "", err
-	}
-	var data sc.StreamData
-	switch URL.Host {
-	case "angelthump.com":
-		data = &sc.StrimsStreamData{
-			Channel: URL.Path[1:],
-			Service: "angelthump",
-		}
-	case "www.twitch.tv":
-		if URL.Path[1:7] == "videos" {
-			data = &sc.StrimsStreamData{
-				Channel: URL.Path[8:],
-				Service: "twitch-vod",
-			}
-		} else {
-			data = &sc.TwitchStreamData{
-				UserName: URL.Path[1:],
-			}
-		}
-	case "strims.gg":
-		if URL.Path[1:5] == "m3u8" {
-			return URL.String(), nil
-		}
-		// TODO: handle more cases than m3u8
-		panic("not handled")
-	case "www.youtube.com":
-		data = &sc.StrimsStreamData{
-			Channel: URL.Query().Get("v"),
-			Service: "youtube",
-		}
-	}
-	if data == nil {
-		return "", errors.New("url not handled")
-	}
-	return streamToUrlString(data, lnkOpenEmbed)
 }
