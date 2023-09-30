@@ -33,7 +33,7 @@ func main() {
 	address := flag.String(
 		"a",
 		"127.0.0.1:8181",
-		"Address to transfer the data from the daemon.",
+		"Address to transfer the data from the daemon. Unset to disable",
 	)
 	refreshTime := flag.Duration(
 		"r",
