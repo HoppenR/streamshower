@@ -1,28 +1,31 @@
 # Streamshower
 
-A simple frontend + backend to show live streams in a TUI.
+A simple frontend to show live streams in a TUI that also acts as a daemon to
+prevent excessive API calls.
+
+![](demo.gif)
 
 ## Usage
 Running Streamshower as a server in the background with the `-b` flag will fetch
-and serve Twitch and Strims data every refresh interval (`-r`) and will then
-serve this data at the specified address (`-a`).
+Twitch and Strims data every refresh interval (`-r`), and then serve this data
+at the specified address (`-a`).
 
-Running the program normally, with the same address as the server, then requests
-data and displays it in an interactive TUI (as opposed to making API calls to
-Twitch and Strims every time the TUI is shown).
+Running the program normally, at the same address as the server, then fetches
+data from the background instance and displays it in an interactive TUI.
 
 
 ## Config
-All settings are stored in a config.json file
+All settings are stored in a config.json file, except for the environment
+variable `$BROWSER` which is used to open links in the TUI.
 
 To generate this file, simply run the program in background mode (`-b`)  and
-provide Client ID, Client Secret, and User ID when prompted.
+provide `Client ID`, `Client Secret`, and `User ID` when prompted.
 
 Explanation:
 
-`Client ID`: The api key of your [Twitch project](dev.twitch.tv)
+`Client ID`: The api key of your [Twitch project](https://dev.twitch.tv)
 
-`Client Secret`: The secret of your [Twitch project](dev.twitch.tv)
+`Client Secret`: The secret of your Twitch project
 
 `User ID`: Your Twitch username
 
