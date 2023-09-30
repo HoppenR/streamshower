@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 
@@ -100,6 +101,8 @@ func NewUI() *UI {
 // one is available (streams.age <= main.refreshTime)
 // TODO: Also display this in the UI
 func (ui *UI) Run() error {
+	// Set title to "Streamshower"
+	fmt.Println("\033]2;Streamshower\a")
 	err := ui.updateStreams()
 	if err != nil {
 		return errors.New("no local server running")

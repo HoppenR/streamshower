@@ -68,7 +68,8 @@ func main() {
 	log.SetFlags(log.Ltime | log.Lshortfile)
 
 	if *embed != "" {
-		host, err := embedString(*embed)
+		var host string
+		host, err = embedString(*embed)
 		if err != nil {
 			panic(err)
 		}
