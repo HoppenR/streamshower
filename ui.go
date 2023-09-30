@@ -97,9 +97,6 @@ func NewUI() *UI {
 	}
 }
 
-// TODO: Keep track of how old the data is and request new data whenever a new
-// one is available (streams.age <= main.refreshTime)
-// TODO: Also display this in the UI
 func (ui *UI) Run() error {
 	// Set title to "Streamshower"
 	fmt.Println("\033]2;Streamshower\a")

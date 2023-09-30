@@ -3,7 +3,7 @@ module streamshower
 go 1.17
 
 require (
-	github.com/HoppenR/streamchecker v0.0.0-20230930114610-2539b78e3667
+	github.com/HoppenR/streamchecker v0.0.0-20230930133401-7ec266ba7f18
 	github.com/gdamore/tcell/v2 v2.6.0
 	github.com/rivo/tview v0.0.0-20230928053139-9bc1d28d88a9
 )

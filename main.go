@@ -22,6 +22,7 @@ const (
 //           From https://api.angelthump.com/v2/streams
 // TODO(ss): Don't display m3u8 streams of angelthump, instead make them
 //           expandable/collapsable under the angelthump stream they are from
+// TODO(ss): Display age of data in the UI?
 
 func main() {
 	background := flag.Bool(
@@ -29,15 +30,10 @@ func main() {
 		false,
 		"Check for streams in the background and serve data over local network",
 	)
-	embed := flag.String(
-		"e",
-		"",
-		"get the embed string",
-	)
 	address := flag.String(
 		"a",
 		"127.0.0.1:8181",
-		"Address to transfer the data from the daemon. Unset to disable",
+		"Address to transfer the data from the daemon.",
 	)
 	refreshTime := flag.Duration(
 		"r",
@@ -52,7 +48,8 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(
 			flag.CommandLine.Output(),
-			"Usage: %s [-b] [-a=ADDRESS] [-r=DURATION] [-u=false]\n", os.Args[0],
+			"Usage: %s [-b] [-a=ADDRESS] [-r=DURATION] [-u=false]\n",
+			os.Args[0],
 		)
 		flag.PrintDefaults()
 	}
@@ -67,22 +64,15 @@ func main() {
 
 	log.SetFlags(log.Ltime | log.Lshortfile)
 
-	if *embed != "" {
-		var host string
-		host, err = embedString(*embed)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(host)
-		os.Exit(0)
-	}
-
 	if *background {
 		cfg := new(Config)
 		cfg.SetConfigFolder("streamshower")
 		configErr := cfg.Load(ConfigFile)
 		if configErr != nil {
-			log.Println("warn: config read failed: " + configErr.Error())
+			log.Println(
+				"warn: config read failed:",
+				configErr.Error(),
+			)
 			err = cfg.GetFromUserInput()
 			if err != nil {
 				log.Fatalln(err)
@@ -106,7 +96,10 @@ func main() {
 		if *useCache {
 			err = ad.GetCachedData()
 			if err != nil {
-				log.Println("warn: could not read cached data: " + err.Error())
+				log.Println(
+					"warn: could not read cached data:",
+					err.Error(),
+				)
 			} else {
 				log.Println("Read cached data")
 			}
@@ -116,7 +109,7 @@ func main() {
 		bg.SetAddress(*address)
 		bg.SetAuthData(ad)
 		bg.SetInterval(*refreshTime)
-		bg.SetLiveCallback(notifyLives)
+		// bg.SetLiveCallback(notifyLives)
 		bg.SetOfflineCallback(nil)
 		err = bg.Run()
 		if err != nil {
@@ -138,42 +131,44 @@ func main() {
 	}
 }
 
+/*
 func notifyLives(stream sc.StreamData) {
-	/*
-	   urgency := "normal"
-	   var args []string
-	   iconbase := "/usr/share/icons/Adwaita/48x48/categories/"
-	   switch stream.GetService() {
-	   case "angelthump":
-	       if stream.GetName() == "psrngafk" {
-	           break
-	       }
-	       args = []string{
-	           stream.GetName(),
-	           "Is being viewed on Strims!",
-	           "--icon=" + iconbase + "applications-multimedia-symbolic.symbolic.png",
-	           "--urgency=" + urgency,
-	       }
-	   case "m3u8":
-	       break
-	   case "twitch":
-	       break
-	   case "twitch-followed":
-	       args = []string{
-	           stream.GetName(),
-	           "Just went live!",
-	           "--icon=" + iconbase + "applications-games-symbolic.symbolic.png",
-	           "--urgency=" + urgency,
-	       }
-	   case "twitch-vod":
-	       break
-	   case "youtube":
-	       break
-	   default:
-	       break
-	   }
-	   if args != nil {
-	       exec.Command("notify-send", args...).Run()
-	   }
-	*/
+	var args []string
+	iconbase := "/usr/share/icons/Adwaita/48x48/categories/"
+	switch stream.GetService() {
+	case "angelthump":
+		if stream.GetName() == "psrngafk" {
+			break
+		}
+		args = []string{
+			stream.GetName(),
+			"Is being viewed on Strims!",
+			"--icon=" + iconbase + "applications-multimedia-symbolic.symbolic.png",
+		}
+	case "m3u8":
+		break
+	case "twitch":
+		break
+	case "twitch-followed":
+		args = []string{
+			stream.GetName(),
+			"Just went live!",
+			"--icon=" + iconbase + "applications-games-symbolic.symbolic.png",
+		}
+	case "twitch-vod":
+		break
+	case "youtube":
+		break
+	default:
+		break
+	}
+	if args != nil {
+		var args_action = []string{
+			"--action=open",
+			"--wait=5000",
+		}
+		args = append(args, args_action...)
+		exec.Command("notify-send", args...).Run()
+	}
 }
+*/
