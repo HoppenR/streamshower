@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -102,7 +101,7 @@ func (ui *UI) Run() error {
 	fmt.Println("\033]2;Streamshower\a")
 	err := ui.updateStreams()
 	if err != nil {
-		return errors.New("no local server running")
+		return fmt.Errorf("no local server running (%s)", err)
 	}
 	ui.pages.SetBackgroundColor(tcell.ColorDefault)
 	ui.setupMainPage()
