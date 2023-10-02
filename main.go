@@ -23,6 +23,9 @@ const (
 // TODO(ss): Don't display m3u8 streams of angelthump, instead make them
 //           expandable/collapsable under the angelthump stream they are from
 // TODO(ss): Display age of data in the UI?
+// TODO(sc): Support hosting server on a separate machine
+//           [x] Server redirects client to authentication when needed
+//           [ ] Requests/redirect-URI is set correctly at all request/responses
 
 func main() {
 	background := flag.Bool(
