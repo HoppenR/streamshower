@@ -8,7 +8,8 @@ prevent excessive API calls.
 ## Usage
 Running Streamshower as a server in the background with the `-b` flag will fetch
 Twitch and Strims data every refresh interval (`-r`), and then serve this data
-at the specified address (`-a`).
+at the specified address (`-a`). The address should match the one set as the
+callback URI in your [Twitch project](https://dev.twitch.tv)
 
 Running the program normally, at the same address as the server, then fetches
 data from the background instance and displays it in an interactive TUI.
@@ -23,7 +24,7 @@ provide `Client ID`, `Client Secret`, and `User ID` when prompted.
 
 Explanation:
 
-`Client ID`: The api key of your [Twitch project](https://dev.twitch.tv)
+`Client ID`: The api key of your Twitch project
 
 `Client Secret`: The secret of your Twitch project
 
