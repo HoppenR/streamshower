@@ -19,7 +19,7 @@ func (ui *UI) setupFilterStrimsPage() {
 	ui.pg3.input.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg3.input.SetBorder(true)
 	ui.pg3.input.SetTitle("Filter(Numeric)")
-	ui.pg3.input.SetFinishedFunc(func(key tcell.Key) {
+	ui.pg3.input.SetFinishedFunc(func(_ tcell.Key) {
 		ui.pages.HidePage("Filter-Strims")
 		ui.app.SetFocus(ui.pg1.strimsList)
 	})

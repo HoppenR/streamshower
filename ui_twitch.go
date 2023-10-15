@@ -69,7 +69,7 @@ func (ui *UI) filterTwitchList(filter string) {
 }
 
 func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
-	var index int = -1
+	var index = -1
 	for i, v := range ui.pg1.streams.Twitch.Data {
 		if pri == v.UserName {
 			index = i

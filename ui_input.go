@@ -192,6 +192,22 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			ui.refreshTwitchList()
 		}
 		return nil
+	case tcell.KeyCtrlU:
+		_, _, _, height := ui.pg1.focusedList.GetRect()
+		jumpoff := (height / 4) - 1
+		if listIdx <= jumpoff {
+			ui.pg1.focusedList.SetCurrentItem(0)
+		} else {
+			ui.pg1.focusedList.SetCurrentItem(listIdx - jumpoff)
+		}
+	case tcell.KeyCtrlD:
+		_, _, _, height := ui.pg1.focusedList.GetRect()
+		jumpoff := (height / 4) - 1
+		if listIdx >= listCnt-jumpoff {
+			ui.pg1.focusedList.SetCurrentItem(listCnt)
+		} else {
+			ui.pg1.focusedList.SetCurrentItem(listIdx + jumpoff)
+		}
 	case tcell.KeyEnter, tcell.KeyRight, tcell.KeyCtrlJ:
 		if err := ui.openSelectedStream(lnkOpenEmbed); err != nil {
 			printerr(err)

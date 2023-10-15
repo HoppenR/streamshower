@@ -40,7 +40,7 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 		}
 	}
 	if data == nil {
-		return errors.New("Cannot open empty result")
+		return errors.New("cannot open empty result")
 	}
 	program := ""
 	switch method {

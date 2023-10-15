@@ -15,17 +15,23 @@ const (
 	CacheFolder = "streamshower"
 )
 
-// TODO(ss): '/': Search instead of filter.
-// TODO(sc): Save follows data between requests.
-// TODO(sc): Separate twitch streams and strims streams in getting?
-// TODO(ss): On-demand get start time for angelthump streams
-//           From https://api.angelthump.com/v2/streams
-// TODO(ss): Don't display m3u8 streams of angelthump, instead make them
-//           expandable/collapsable under the angelthump stream they are from
-// TODO(ss): Display age of data in the UI?
+// Streamchecker
 // TODO(sc): Support hosting server on a separate machine
 //           [x] Server redirects client to authentication when needed
+//           [ ] Support https:// protocol
 //           [ ] Requests/redirect-URI is set correctly at all request/responses
+
+// TODO(sc): [ ] Support automatically re-getting tokens on http status codes
+// TODO(sc): [ ] Support automatically re-getting tokens on expiry
+// TODO(sc): [x] Save follows data between requests.
+
+// Streamshower
+// TODO(ss): [ ] '/': Search instead of filter.
+// TODO(ss): [ ] On-demand get start time for angelthump streams
+//               From https://api.angelthump.com/v2/streams
+// TODO(ss): [ ] Don't display m3u8 streams of angelthump, instead make them
+//               expandable/collapsable under the angelthump stream they're from
+// TODO(ss): [ ] Display age of data in the UI?
 
 func main() {
 	background := flag.Bool(
@@ -36,7 +42,7 @@ func main() {
 	address := flag.String(
 		"a",
 		":8181",
-		"Address port to transfer the data from the daemon. Unset to disable",
+		"Address of the server. Unset to disable data hosting",
 	)
 	refreshTime := flag.Duration(
 		"r",
