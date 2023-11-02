@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	sc "github.com/HoppenR/streamchecker"
 )
@@ -60,9 +61,14 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 	if err != nil {
 		return err
 	}
-	err = exec.Command(p, rawURL).Run()
-	// _, err = os.StartProcess(p, []string{p, rawURL}, &os.ProcAttr{Env: os.Environ()})
-	return err
+
+	cmd := exec.Command(p, rawURL)
+	// Set the new process process group-ID to its process ID
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Pgid:    0,
+		Setpgid: true,
+	}
+	return cmd.Start()
 }
 
 func streamToUrlString(data sc.StreamData, method OpenMethod) (string, error) {
