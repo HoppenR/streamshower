@@ -2,6 +2,8 @@ github.com/HoppenR/streamchecker v0.0.0-20250503173853-cab915b5ee26 h1:fbk1puJo9
 github.com/HoppenR/streamchecker v0.0.0-20250503173853-cab915b5ee26/go.mod h1:uUqNqHrXg2i5UtsdQT+K3P910G4p5X1ctpCJXW9v5MQ=
 github.com/HoppenR/streamchecker v0.0.0-20250503183416-efd0c33bf967 h1:OpnbOQ67ukX3/0IsBY/kyR3F5ta4N5Y793YRWgZhXpY=
 github.com/HoppenR/streamchecker v0.0.0-20250503183416-efd0c33bf967/go.mod h1:uUqNqHrXg2i5UtsdQT+K3P910G4p5X1ctpCJXW9v5MQ=
+github.com/HoppenR/streamchecker v0.0.0-20250503185253-365563cafba9 h1:jS8dsEV06c+EhOK6bRQSuRKcfoYTA/BJJrEVT2nCrhg=
+github.com/HoppenR/streamchecker v0.0.0-20250503185253-365563cafba9/go.mod h1:uUqNqHrXg2i5UtsdQT+K3P910G4p5X1ctpCJXW9v5MQ=
 github.com/gdamore/encoding v1.0.1 h1:YzKZckdBL6jVt2Gc+5p82qhrGiqMdG/eNs6Wy0u3Uhw=
 github.com/gdamore/encoding v1.0.1/go.mod h1:0Z0cMFinngz9kS1QfMjCP8TY7em3bZYeeklsSDPivEo=
 github.com/gdamore/tcell/v2 v2.8.1 h1:KPNxyqclpWpWQlPLx6Xui1pMk8S+7+R37h3g07997NU=
