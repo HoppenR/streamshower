@@ -61,7 +61,7 @@ func (ui *UI) updateStreams() error {
 }
 
 func (ui *UI) forceRemoteUpdate() error {
-	resp, err := http.Post("http://" + ui.addr, "application/octet-stream", nil)
+	resp, err := http.Post(ui.addr, "application/octet-stream", nil)
 	if err != nil {
 		return err
 	}

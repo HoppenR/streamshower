@@ -18,7 +18,6 @@ const (
 // Streamchecker
 // TODO(sc): Support hosting server on a separate machine
 //           [x] Server redirects client to authentication when needed
-//           [ ] Support https:// protocol
 //           [ ] Requests/redirect-URI is set correctly at all request/responses
 
 // TODO(sc): [ ] Support automatically re-getting tokens on http status codes
@@ -41,7 +40,7 @@ func main() {
 	)
 	address := flag.String(
 		"a",
-		":8181",
+		"http://:8181",
 		"Address of the server. Unset to disable data hosting",
 	)
 	refreshTime := flag.Duration(
