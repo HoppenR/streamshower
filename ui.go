@@ -50,7 +50,7 @@ func (ui *UI) SetAddress(address string) {
 }
 
 func (ui *UI) updateStreams() error {
-	streams, err := sc.GetLocalServerData(ui.addr)
+	streams, err := sc.GetServerData(ui.addr)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (ui *UI) Run() error {
 	fmt.Println("\033]2;Streamshower\a")
 	err := ui.updateStreams()
 	if err != nil {
-		return fmt.Errorf("no local server running (%s)", err)
+		return fmt.Errorf("no server running (%s)", err)
 	}
 	ui.pages.SetBackgroundColor(tcell.ColorDefault)
 	ui.setupMainPage()
