@@ -19,7 +19,11 @@ const (
 // TODO(sc): Support hosting server on a separate machine
 //           [x] Server redirects client to authentication when needed
 //           [x] Support https:// protocol
-//           [ ] Requests/redirect-URI is set correctly at all request/responses
+//           [x] Requests/redirect-URI is set correctly at all request/responses
+
+// TODO(sc): Support disabling/enabling twitch/strims fetching
+//           [ ] Add flags
+//           [ ] Send empty data to client requests for disabled platform
 
 // TODO(sc): [ ] Support automatically re-getting tokens on http status codes
 // TODO(sc): [ ] Support automatically re-getting tokens on expiry
@@ -124,14 +128,13 @@ func main() {
 		bg.SetAuthData(ad)
 		bg.SetInterval(*refreshTime)
 		bg.SetRedirect(*redirect)
-		// bg.SetLiveCallback(notifyLives)
 		bg.SetLiveCallback(nil)
 		bg.SetOfflineCallback(nil)
 		err = bg.Run()
 		if err != nil {
 			log.Fatalln(err)
 		}
-		err = ad.SaveCache()
+		err = ad.SaveCachedData()
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -146,45 +149,3 @@ func main() {
 		}
 	}
 }
-
-/*
-func notifyLives(stream sc.StreamData) {
-	var args []string
-	iconbase := "/usr/share/icons/Adwaita/48x48/categories/"
-	switch stream.GetService() {
-	case "angelthump":
-		if stream.GetName() == "psrngafk" {
-			break
-		}
-		args = []string{
-			stream.GetName(),
-			"Is being viewed on Strims!",
-			"--icon=" + iconbase + "applications-multimedia-symbolic.symbolic.png",
-		}
-	case "m3u8":
-		break
-	case "twitch":
-		break
-	case "twitch-followed":
-		args = []string{
-			stream.GetName(),
-			"Just went live!",
-			"--icon=" + iconbase + "applications-games-symbolic.symbolic.png",
-		}
-	case "twitch-vod":
-		break
-	case "youtube":
-		break
-	default:
-		break
-	}
-	if args != nil {
-		var args_action = []string{
-			"--action=open",
-			"--wait=5000",
-		}
-		args = append(args, args_action...)
-		exec.Command("notify-send", args...).Run()
-	}
-}
-*/
