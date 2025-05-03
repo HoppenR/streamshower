@@ -22,6 +22,15 @@ variable `$BROWSER` which is used to open links in the TUI.
 To generate this file, simply run the program in background mode (`-b`)  and
 provide `Client ID`, `Client Secret`, and `User ID` when prompted.
 
+Currently the recommended way to generate the configuration file when running
+in docker is to run the container interactively for the first run. Example
+
+```console
+
+docker build . -t streamshower
+docker run --name streamshower -p 8181:8181 -it streamshower:latest
+```
+
 Explanation:
 
 `Client ID`: The api key of your Twitch project
