@@ -41,8 +41,13 @@ func main() {
 	)
 	address := flag.String(
 		"a",
-		":8181",
+		"http://0.0.0.0:8181",
 		"Address of the server. Unset to disable data hosting",
+	)
+	redirect := flag.String(
+		"e",
+		"http://localhost:8181/oauth-callback",
+		"Callback address for authenticating",
 	)
 	refreshTime := flag.Duration(
 		"r",
@@ -118,7 +123,9 @@ func main() {
 		bg.SetAddress(*address)
 		bg.SetAuthData(ad)
 		bg.SetInterval(*refreshTime)
+		bg.SetRedirect(*redirect)
 		// bg.SetLiveCallback(notifyLives)
+		bg.SetLiveCallback(nil)
 		bg.SetOfflineCallback(nil)
 		err = bg.Run()
 		if err != nil {
