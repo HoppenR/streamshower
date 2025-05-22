@@ -156,13 +156,13 @@ func (ui *UI) setupMainPage() {
 	ui.pg1.streamInfo.SetBorder(true)
 	ui.pg1.streamInfo.SetInputCapture(ui.streamInfoInputHandler)
 	ui.pg1.streamInfo.SetDynamicColors(true)
-	ui.pg1.streamInfo.SetTitle("Stream Info")
+	ui.pg1.streamInfo.SetTitle("Stream Info (" + ui.addr + ")")
 	// TextInfo
 	ui.pg1.infoCon.AddItem(ui.pg1.infoText, 3, 0, false)
 	ui.pg1.infoText.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg1.infoText.SetDynamicColors(true)
 	ui.pg1.infoText.SetDrawFunc(func(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
-		if w < 63 {
+		if w < 90 {
 			ui.pg1.infoText.Clear()
 		} else {
 			ui.pg1.infoText.SetText(SHORTCUT_HELP)
@@ -174,27 +174,28 @@ func (ui *UI) setupMainPage() {
 func (ui *UI) setupRefreshDialoguePage() {
 	ui.pg4.modal.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg4.modal.SetText("Force refresh of server's streams?")
-	ui.pg4.modal.AddButtons([]string{"Refresh", "Cancel"})
+	buttonLabels := []string{"Refresh", "Refresh Follows", "Cancel"}
+	ui.pg4.modal.AddButtons(buttonLabels)
 	ui.pg4.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		// TODO: Can we have better error handling in here?
-		switch buttonLabel {
-		case "Refresh":
+		if buttonIndex == 0 || buttonIndex == 1 {
 			ui.pg4.modal.SetText("Loading...")
 			ui.app.ForceDraw()
-			_ = ui.forceRemoteUpdate()
+			if buttonIndex == 1 {
+				_ = ui.forceRemoteUpdate()
+			}
 			_ = ui.updateStreams()
-			ui.pg4.modal.SetText("Force refresh of server's streams?")
-		case "Cancel":
+
+			switch ui.pg1.focusedList {
+			case ui.pg1.twitchList:
+				ui.refreshStrimsList()
+				ui.refreshTwitchList()
+			case ui.pg1.strimsList:
+				ui.refreshTwitchList()
+				ui.refreshStrimsList()
+			}
 		}
 		ui.pages.HidePage("Refresh-Dialogue")
-		switch ui.pg1.focusedList {
-		case ui.pg1.twitchList:
-			ui.refreshStrimsList()
-			ui.refreshTwitchList()
-		case ui.pg1.strimsList:
-			ui.refreshTwitchList()
-			ui.refreshStrimsList()
-		}
 		ui.app.SetFocus(ui.pg1.focusedList)
 	})
 }
