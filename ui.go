@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
+	"time"
 
 	sc "github.com/HoppenR/streamchecker"
 	"github.com/gdamore/tcell/v2"
@@ -165,7 +167,11 @@ func (ui *UI) setupMainPage() {
 		if w < 90 {
 			ui.pg1.infoText.Clear()
 		} else {
-			ui.pg1.infoText.SetText(SHORTCUT_HELP)
+			ui.pg1.infoText.SetText(
+				SHORTCUT_HELP +
+					strings.Repeat(" ", 16) +
+					ui.pg1.streams.LastFetched.Format(time.Stamp),
+			)
 		}
 		return x, y, w, h
 	})
@@ -174,7 +180,7 @@ func (ui *UI) setupMainPage() {
 func (ui *UI) setupRefreshDialoguePage() {
 	ui.pg4.modal.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg4.modal.SetText("Force refresh of server's streams?")
-	buttonLabels := []string{"Refresh", "Refresh Follows", "Cancel"}
+	buttonLabels := []string{"Refresh", "Refresh Server Data", "Cancel"}
 	ui.pg4.modal.AddButtons(buttonLabels)
 	ui.pg4.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
 		// TODO: Can we have better error handling in here?
@@ -194,6 +200,7 @@ func (ui *UI) setupRefreshDialoguePage() {
 				ui.refreshTwitchList()
 				ui.refreshStrimsList()
 			}
+			ui.pg4.modal.SetText("Force refresh of server's streams?")
 		}
 		ui.pages.HidePage("Refresh-Dialogue")
 		ui.app.SetFocus(ui.pg1.focusedList)
