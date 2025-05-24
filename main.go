@@ -25,8 +25,8 @@ const (
 //           [ ] Add flags
 //           [ ] Send empty data to client requests for disabled platform
 
-// TODO(sc): [ ] Support automatically re-getting tokens on http status codes
-// TODO(sc): [ ] Support automatically re-getting tokens on expiry
+// TODO(sc): [x] Support automatically re-getting tokens on http status codes
+// TODO(sc): [x] Support automatically re-getting tokens on expiry
 // TODO(sc): [x] Save follows data between requests.
 
 // Streamshower
@@ -46,7 +46,7 @@ func main() {
 	address := flag.String(
 		"a",
 		"http://0.0.0.0:8181",
-		"Address of the server. Unset to disable data hosting",
+		"Address of the server",
 	)
 	redirect := flag.String(
 		"e",
