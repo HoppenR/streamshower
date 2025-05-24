@@ -87,6 +87,8 @@ func main() {
 		cfg.SetConfigFolder("streamshower")
 		configErr := cfg.Load(ConfigFile)
 		if configErr != nil {
+			// TODO: If ad.configFolder is unset, it will prompt for
+			//        input and then crash anyway when saving data
 			log.Println(
 				"warn: config read failed:",
 				configErr.Error(),
