@@ -35,7 +35,7 @@ const (
 //               From https://api.angelthump.com/v2/streams
 // TODO(ss): [ ] Don't display m3u8 streams of angelthump, instead make them
 //               expandable/collapsable under the angelthump stream they're from
-// TODO(ss): [ ] Display age of data in the UI?
+// TODO(ss): [x] Display age of data in the UI
 
 func main() {
 	background := flag.Bool(
