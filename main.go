@@ -28,6 +28,9 @@ const (
 // TODO(sc): [x] Support automatically re-getting tokens on http status codes
 // TODO(sc): [x] Support automatically re-getting tokens on expiry
 // TODO(sc): [x] Save follows data between requests.
+// TODO(sc): [x] Cache follows in a folder .cache/streamchecker/follows/<USERNAME>
+//               then a user access token is only ever needed in case of wanting
+//               to update follows
 
 // Streamshower
 // TODO(ss): [ ] '/': Search instead of filter.
