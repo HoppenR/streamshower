@@ -117,10 +117,33 @@ func (ui *UI) Run() error {
 	// Force refresh windows by triggering OnChange
 	ui.pg3.input.SetText(DefaultRustlerMin)
 	ui.pg2.input.SetText(DefaultTwitchFilter)
-	err = ui.app.SetRoot(ui.pages, true).Run()
-	if err != nil {
+	ui.app.SetRoot(ui.pages, true)
+
+	// Set up remote update checking
+	stopUpdatesCh := make(chan struct{})
+	defer close(stopUpdatesCh)
+	go func() {
+		for {
+			nextUpdate := ui.pg1.streams.LastFetched.Add(ui.pg1.streams.RefreshInterval)
+			sleepDuration := max(time.Until(nextUpdate), 0)
+
+			select {
+			case <-time.After(sleepDuration):
+				err := ui.updateStreams()
+				if err != nil {
+					panic(err)
+				}
+				ui.app.Draw()
+			case <-stopUpdatesCh:
+				return
+			}
+		}
+	}()
+
+	if err = ui.app.Run(); err != nil {
 		return err
 	}
+
 	return nil
 }
 

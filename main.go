@@ -46,6 +46,9 @@ func main() {
 		false,
 		"Check for streams in the background and serve data over the network",
 	)
+	// TODO: Not sure? :
+	//       Default for -b flag should be http://0.0.0.0 or https://
+	//       but default without should be 0.0.0.0:8181
 	address := flag.String(
 		"a",
 		"http://0.0.0.0:8181",
