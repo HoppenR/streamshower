@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	sc "github.com/HoppenR/streamchecker"
@@ -23,6 +26,10 @@ type UI struct {
 	pg3   *FilterInput // "Filter-Strims"
 	pg4   *DialogueBox // "Refresh-Dialogue"
 	addr  string
+
+	updateStreamsCh     chan struct{}
+	forceRemoteUpdateCh chan struct{}
+	wg                  sync.WaitGroup
 }
 
 type FilterInput struct {
@@ -51,8 +58,8 @@ func (ui *UI) SetAddress(address string) {
 	ui.addr = address
 }
 
-func (ui *UI) updateStreams() error {
-	streams, err := sc.GetServerData(ui.addr)
+func (ui *UI) updateStreams(ctx context.Context) error {
+	streams, err := sc.GetServerData(ctx, ui.addr)
 	if err != nil {
 		return err
 	}
@@ -62,12 +69,20 @@ func (ui *UI) updateStreams() error {
 	return nil
 }
 
-func (ui *UI) forceRemoteUpdate() error {
-	resp, err := http.Post(ui.addr, "application/octet-stream", nil)
+func (ui *UI) forceRemoteUpdate(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ui.addr, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	var resp *http.Response
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
 	return nil
 }
 
@@ -95,16 +110,21 @@ func NewUI() *UI {
 		pg4: &DialogueBox{
 			modal: tview.NewModal(),
 		},
+		updateStreamsCh:     make(chan struct{}),
+		forceRemoteUpdateCh: make(chan struct{}),
 	}
 }
 
 func (ui *UI) Run() error {
 	// Set title to "Streamshower"
-	fmt.Println("\033]2;Streamshower\a")
-	err := ui.updateStreams()
+	fmt.Print("\033]2;Streamshower\a")
+
+	// Run initial data fetch in main goroutine
+	err := ui.updateStreams(context.Background())
 	if err != nil {
 		return fmt.Errorf("no server running (%s)", err)
 	}
+
 	ui.pages.SetBackgroundColor(tcell.ColorDefault)
 	ui.setupMainPage()
 	ui.setupFilterTwitchPage()
@@ -119,32 +139,68 @@ func (ui *UI) Run() error {
 	ui.pg2.input.SetText(DefaultTwitchFilter)
 	ui.app.SetRoot(ui.pages, true)
 
-	// Set up remote update checking
-	stopUpdatesCh := make(chan struct{})
-	defer close(stopUpdatesCh)
-	go func() {
-		for {
-			nextUpdate := ui.pg1.streams.LastFetched.Add(ui.pg1.streams.RefreshInterval)
-			sleepDuration := max(time.Until(nextUpdate), 0)
+	// NOTE: These are in-order (LIFO) deferred calls
+	ctx, cancel := context.WithCancel(context.Background())
+	defer ui.wg.Wait()
+	defer cancel()
 
-			select {
-			case <-time.After(sleepDuration):
-				err := ui.updateStreams()
-				if err != nil {
-					panic(err)
-				}
-				ui.app.Draw()
-			case <-stopUpdatesCh:
-				return
-			}
-		}
-	}()
+	// Set up remote update checking
+	ui.wg.Add(1)
+	go ui.streamUpdateLoop(ctx)
 
 	if err = ui.app.Run(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (ui *UI) streamUpdateLoop(ctx context.Context) {
+	// TODO: Can we have better error handling in this goroutine?
+	defer ui.wg.Done()
+
+	var err error
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+	for {
+		var nextUpdate time.Time
+		nextUpdate = ui.pg1.streams.LastFetched.Add(ui.pg1.streams.RefreshInterval)
+		timer.Reset(time.Until(nextUpdate))
+		select {
+		case <-ctx.Done():
+			return
+		case <-ui.forceRemoteUpdateCh:
+			err = ui.forceRemoteUpdate(ctx)
+			if errors.Is(err, context.Canceled) {
+				return
+			} else if err != nil {
+				panic(err)
+			}
+			continue
+		case <-ui.updateStreamsCh:
+			// pass
+		case <-timer.C:
+			// pass
+		}
+
+		err = ui.updateStreams(ctx)
+		if errors.Is(err, context.Canceled) {
+			return
+		} else if err != nil {
+			panic(err)
+		}
+
+		ui.app.QueueUpdateDraw(func() {
+			switch ui.pg1.focusedList {
+			case ui.pg1.twitchList:
+				ui.refreshStrimsList()
+				ui.refreshTwitchList()
+			case ui.pg1.strimsList:
+				ui.refreshTwitchList()
+				ui.refreshStrimsList()
+			}
+		})
+	}
 }
 
 // TODO: Use SetDrawFunc instead of OnChange + initializing?
@@ -206,23 +262,13 @@ func (ui *UI) setupRefreshDialoguePage() {
 	buttonLabels := []string{"Refresh", "Refresh Server Data", "Cancel"}
 	ui.pg4.modal.AddButtons(buttonLabels)
 	ui.pg4.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-		// TODO: Can we have better error handling in here?
 		if buttonIndex == 0 || buttonIndex == 1 {
 			ui.pg4.modal.SetText("Loading...")
 			ui.app.ForceDraw()
 			if buttonIndex == 1 {
-				_ = ui.forceRemoteUpdate()
+				ui.forceRemoteUpdateCh <- struct{}{}
 			}
-			_ = ui.updateStreams()
-
-			switch ui.pg1.focusedList {
-			case ui.pg1.twitchList:
-				ui.refreshStrimsList()
-				ui.refreshTwitchList()
-			case ui.pg1.strimsList:
-				ui.refreshTwitchList()
-				ui.refreshStrimsList()
-			}
+			ui.updateStreamsCh <- struct{}{}
 			ui.pg4.modal.SetText("Force refresh of server's streams?")
 		}
 		ui.pages.HidePage("Refresh-Dialogue")

@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.2
 
 require (
-	github.com/HoppenR/streamchecker v0.0.0-20250525182257-3293d3f51d68
+	github.com/HoppenR/streamchecker v0.0.0-20250525215158-6df1a9f88979
 	github.com/gdamore/tcell/v2 v2.8.1
 	github.com/rivo/tview v0.0.0-20250501113434-0c592cd31026
 )
