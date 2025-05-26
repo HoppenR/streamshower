@@ -270,7 +270,7 @@ func (ui *UI) setupMainPage() {
 			ui.pg1.streamInfoText.SetText(
 				SHORTCUT_HELP +
 					strings.Repeat(" ", 16) +
-					ui.pg1.streams.LastFetched.Format(time.Stamp),
+					ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp),
 			)
 		}
 		return x, y, w, h
