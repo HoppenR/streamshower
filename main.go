@@ -70,9 +70,7 @@ func main() {
 	var err error
 
 	if *background {
-		logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			AddSource: true,
-		}))
+		logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 		cfg := new(Config)
 		err = cfg.SetConfigFolder("streamshower")
