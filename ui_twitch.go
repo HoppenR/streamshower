@@ -13,7 +13,7 @@ import (
 
 func (ui *UI) refreshTwitchList() {
 	oldIdx := ui.pg1.twitchList.GetCurrentItem()
-	ui.filterTwitchList(ui.pg2.input.GetText())
+	ui.updateTwitchList(ui.pg2.input.GetText())
 	ui.pg1.twitchList.SetCurrentItem(oldIdx)
 }
 
@@ -21,11 +21,12 @@ func (ui *UI) setupFilterTwitchPage() {
 	ui.pg2.input.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg2.input.SetBorder(true)
 	ui.pg2.input.SetTitle("Filter(Regex)")
+	ui.pg2.input.SetText(DefaultTwitchFilter)
 	ui.pg2.input.SetFinishedFunc(func(key tcell.Key) {
 		ui.pages.HidePage("Filter-Twitch")
 		ui.app.SetFocus(ui.pg1.twitchList)
 	})
-	ui.pg2.input.SetChangedFunc(ui.filterTwitchList)
+	ui.pg2.input.SetChangedFunc(ui.updateTwitchList)
 	const (
 		FilterWidth  = 26
 		FilterHeight = 3
@@ -50,7 +51,7 @@ func (ui *UI) setupFilterTwitchPage() {
 	ui.pg2.con.AddItem(ui.pg2.input, 1, 1, 1, 1, 0, 0, true)
 }
 
-func (ui *UI) filterTwitchList(filter string) {
+func (ui *UI) updateTwitchList(filter string) {
 	ui.pg1.twitchList.Clear()
 	ixs := ui.matchTwitchListIndex(filter, ui.pg2.inverted)
 	if ixs == nil {

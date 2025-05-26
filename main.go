@@ -15,22 +15,9 @@ const (
 	CacheFolder = "streamshower"
 )
 
-// Streamchecker
-// TODO(sc): Support hosting server on a separate machine
-//           [x] Server redirects client to authentication when needed
-//           [x] Support https:// protocol
-//           [x] Requests/redirect-URI is set correctly at all request/responses
-
 // TODO(sc): Support disabling/enabling twitch/strims fetching
 //           [ ] Add flags
 //           [ ] Send empty data to client requests for disabled platform
-
-// TODO(sc): [x] Support automatically re-getting tokens on http status codes
-// TODO(sc): [x] Support automatically re-getting tokens on expiry
-// TODO(sc): [x] Save follows data between requests.
-// TODO(sc): [x] Cache follows in a folder .cache/streamchecker/follows/<USERNAME>
-//               then a user access token is only ever needed in case of wanting
-//               to update follows
 
 // Streamshower
 // TODO(ss): [ ] '/': Search instead of filter.
@@ -38,7 +25,6 @@ const (
 //               From https://api.angelthump.com/v2/streams
 // TODO(ss): [ ] Don't display m3u8 streams of angelthump, instead make them
 //               expandable/collapsable under the angelthump stream they're from
-// TODO(ss): [x] Display age of data in the UI
 
 func main() {
 	background := flag.Bool(
