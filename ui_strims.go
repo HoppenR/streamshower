@@ -11,7 +11,7 @@ import (
 
 func (ui *UI) refreshStrimsList() {
 	oldIdx := ui.pg1.strimsList.GetCurrentItem()
-	ui.filterStrimsList(ui.pg3.input.GetText())
+	ui.updateStrimsList(ui.pg3.input.GetText())
 	ui.pg1.strimsList.SetCurrentItem(oldIdx)
 }
 
@@ -19,11 +19,12 @@ func (ui *UI) setupFilterStrimsPage() {
 	ui.pg3.input.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg3.input.SetBorder(true)
 	ui.pg3.input.SetTitle("Filter(Numeric)")
+	ui.pg3.input.SetText(DefaultRustlerMin)
 	ui.pg3.input.SetFinishedFunc(func(_ tcell.Key) {
 		ui.pages.HidePage("Filter-Strims")
 		ui.app.SetFocus(ui.pg1.strimsList)
 	})
-	ui.pg3.input.SetChangedFunc(ui.filterStrimsList)
+	ui.pg3.input.SetChangedFunc(ui.updateStrimsList)
 	const (
 		FilterWidth  = 26
 		FilterHeight = 3
@@ -34,7 +35,7 @@ func (ui *UI) setupFilterStrimsPage() {
 	ui.pg3.con.AddItem(ui.pg3.input, 1, 1, 1, 1, 0, 0, true)
 }
 
-func (ui *UI) filterStrimsList(filter string) {
+func (ui *UI) updateStrimsList(filter string) {
 	ui.pg1.strimsList.Clear()
 	threshold, err := strconv.Atoi(filter)
 	if err != nil {
