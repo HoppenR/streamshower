@@ -60,7 +60,10 @@ func (ui *UI) SetAddress(address string) {
 }
 
 func (ui *UI) updateStreams(ctx context.Context) error {
-	streams, err := sc.GetServerData(ctx, ui.addr)
+	ctxTo, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	streams, err := sc.GetServerData(ctxTo, ui.addr)
 	if err != nil {
 		return err
 	}
@@ -71,7 +74,10 @@ func (ui *UI) updateStreams(ctx context.Context) error {
 }
 
 func (ui *UI) forceRemoteUpdate(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ui.addr, nil)
+	ctxTo, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctxTo, http.MethodPost, ui.addr, nil)
 	if err != nil {
 		return err
 	}
@@ -88,24 +94,19 @@ func (ui *UI) forceRemoteUpdate(ctx context.Context) error {
 }
 
 func NewUI() *UI {
-	twitchList := tview.NewList()
-	return &UI{
+	ui := &UI{
 		app:   tview.NewApplication(),
 		pages: tview.NewPages(),
 		pg1: &MainPage{
 			con:            tview.NewFlex(),
-			focusedList:    twitchList,
 			streamsCon:     tview.NewFlex(),
 			infoCon:        tview.NewFlex(),
-			twitchList:     twitchList,
+			twitchList:     tview.NewList(),
 			strimsList:     tview.NewList(),
 			streamInfo:     tview.NewTextView(),
 			streamInfoText: tview.NewTextView(),
 			appStatusText:  tview.NewTextView(),
-			streams: &sc.Streams{
-				Twitch: new(sc.TwitchStreams),
-				Strims: new(sc.StrimsStreams),
-			},
+			streams:        new(sc.Streams),
 		},
 		pg2: &FilterInput{
 			con:   tview.NewGrid(),
@@ -121,6 +122,8 @@ func NewUI() *UI {
 		updateStreamsCh:     make(chan struct{}, 1),
 		forceRemoteUpdateCh: make(chan struct{}, 1),
 	}
+	ui.pg1.focusedList = ui.pg1.twitchList
+	return ui
 }
 
 func (ui *UI) Run() error {
@@ -161,11 +164,12 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	ui.setStatus("green", "Ready")
 	for {
-		var nextUpdate time.Time
-		nextUpdate = ui.pg1.streams.LastFetched.Add(ui.pg1.streams.RefreshInterval)
-		timer.Reset(time.Until(nextUpdate))
+		if !ui.pg1.streams.LastFetched.IsZero() {
+			var nextUpdate time.Time
+			nextUpdate = ui.pg1.streams.LastFetched.Add(ui.pg1.streams.RefreshInterval)
+			timer.Reset(time.Until(nextUpdate))
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -189,6 +193,9 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		err = ui.updateStreams(ctx)
 		if errors.Is(err, context.Canceled) {
 			return
+		} else if errors.Is(err, sc.ErrAuthPending) {
+			ui.setStatus("yellow", "Authenticate, then press R")
+			continue
 		} else if err != nil {
 			ui.setStatus("red", fmt.Sprintf("Error fetching: %s", err))
 			continue
@@ -197,7 +204,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		ui.setStatus(
 			"green",
 			fmt.Sprintf(
-				"Fetched %d twitch streams and %d strims streams",
+				"Fetched %d Twitch streams and %d Strims streams",
 				ui.pg1.streams.Twitch.Len(),
 				ui.pg1.streams.Strims.Len(),
 			),
@@ -264,14 +271,13 @@ func (ui *UI) setupMainPage() {
 	ui.pg1.streamInfoText.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg1.streamInfoText.SetDynamicColors(true)
 	ui.pg1.streamInfoText.SetDrawFunc(func(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
-		if w < 90 {
-			ui.pg1.streamInfoText.Clear()
-		} else {
-			ui.pg1.streamInfoText.SetText(
-				SHORTCUT_HELP +
-					strings.Repeat(" ", 16) +
-					ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp),
-			)
+		ui.pg1.streamInfoText.Clear()
+		if w >= 90 {
+			ui.pg1.streamInfoText.Write([]byte(SHORTCUT_HELP))
+			ui.pg1.streamInfoText.Write([]byte(strings.Repeat(" ", 16)))
+			if !ui.pg1.streams.LastFetched.IsZero() {
+				ui.pg1.streamInfoText.Write([]byte(ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp)))
+			}
 		}
 		return x, y, w, h
 	})
@@ -290,13 +296,13 @@ func (ui *UI) setupRefreshDialoguePage() {
 				select {
 				case ui.forceRemoteUpdateCh <- struct{}{}:
 				default:
-					ui.setStatus("red", "Skipped remote update, try again later...")
+					ui.pg1.appStatusText.SetText("[red]Skipped remote update, try again later...[-]")
 				}
 			}
 			select {
 			case ui.updateStreamsCh <- struct{}{}:
 			default:
-				ui.setStatus("red", "Skipped fetching streams, try again later...")
+				ui.pg1.appStatusText.SetText("[red]Skipped fetching streams, try again later...[-]")
 			}
 			ui.pg4.modal.SetText("Force refresh of server's streams?")
 		}
