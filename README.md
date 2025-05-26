@@ -40,7 +40,7 @@ Then run it as follows.
 
 ```console
 docker build . -t streamshower
-docker run --env-file .env --name streamshower -p 8181:8181 -it streamshower:latest
+docker run --env-file .env --name streamshower -p 8181:8181 streamshower:latest
 ```
 
 Explanation of environment variables:
