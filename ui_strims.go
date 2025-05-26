@@ -44,26 +44,26 @@ func (ui *UI) updateStrimsList(filter string) {
 		ui.pg3.input.SetBorderColor(tcell.ColorDefault)
 	}
 	var ixs []int
-	for _, v := range ui.pg1.streams.Strims.Data {
+	for ix, v := range ui.pg1.streams.Strims.Data {
 		if v.Rustlers >= threshold {
-			ixs = append(ixs, v.Rustlers)
+			ixs = append(ixs, ix)
 		}
 	}
 	if ixs == nil {
 		ui.pg1.strimsList.AddItem("", "", 0, nil)
 		return
 	}
-	for v := range ixs {
-		mainstr := ui.pg1.streams.Strims.Data[v].Channel
+	for ix := range ixs {
+		mainstr := ui.pg1.streams.Strims.Data[ix].Channel
 		color := "green"
-		if ui.pg1.streams.Strims.Data[v].Nsfw {
+		if ui.pg1.streams.Strims.Data[ix].Nsfw {
 			color = "red"
 		}
 		secstr := fmt.Sprintf(
 			" %-6d[%s:-:u]%s[-:-:-]",
-			ui.pg1.streams.Strims.Data[v].Rustlers,
+			ui.pg1.streams.Strims.Data[ix].Rustlers,
 			color,
-			tview.Escape(ui.pg1.streams.Strims.Data[v].Title),
+			tview.Escape(ui.pg1.streams.Strims.Data[ix].Title),
 		)
 		ui.pg1.strimsList.AddItem(mainstr, secstr, 0, nil)
 	}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,6 +20,8 @@ type configData struct {
 	UserName     string `json:"user_name"`
 }
 
+var ErrConfigFolderUnset = errors.New("config folder not set")
+
 func (c *Config) SetConfigFolder(name string) error {
 	confdir, err := os.UserConfigDir()
 	if err != nil {
@@ -37,7 +38,7 @@ func (c *Config) SetConfigFolder(name string) error {
 
 func (c *Config) Load(filename string) error {
 	if c.configFolder == "" {
-		return errors.New("config folder not set")
+		return ErrConfigFolderUnset
 	}
 	file, err := os.Open(filepath.Join(c.configFolder, filename))
 	if err != nil {
@@ -52,35 +53,35 @@ func (c *Config) Load(filename string) error {
 	return nil
 }
 
-func (c *Config) GetFromUserInput() error {
-	rdr := bufio.NewReader(os.Stdin)
-	fmt.Print("Please input Client ID: ")
-	clientID, err := rdr.ReadString('\n')
-	if err != nil {
-		fmt.Println()
-		return err
+func (c *Config) GetFromEnv() error {
+	clientID := strings.TrimSpace(os.Getenv("CLIENT_ID"))
+	clientSecret := strings.TrimSpace(os.Getenv("CLIENT_SECRET"))
+	userName := strings.TrimSpace(os.Getenv("USER_NAME"))
+
+	var missing []string
+	if clientID == "" {
+		missing = append(missing, "CLIENT_ID")
 	}
-	c.data.ClientID = strings.TrimSpace(clientID)
-	fmt.Print("Please input Client Secret: ")
-	clientSecret, err := rdr.ReadString('\n')
-	if err != nil {
-		fmt.Println()
-		return err
+	if clientSecret == "" {
+		missing = append(missing, "CLIENT_SECRET")
 	}
-	c.data.ClientSecret = strings.TrimSpace(clientSecret)
-	fmt.Print("Please input User Name: ")
-	userName, err := rdr.ReadString('\n')
-	if err != nil {
-		fmt.Println()
-		return err
+	if userName == "" {
+		missing = append(missing, "USER_NAME")
 	}
-	c.data.UserName = strings.TrimSpace(userName)
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+
+	c.data.ClientID = clientID
+	c.data.ClientSecret = clientSecret
+	c.data.UserName = userName
 	return nil
 }
 
 func (c *Config) Save(filename string) error {
 	if c.configFolder == "" {
-		return errors.New("config folder not set")
+		return ErrConfigFolderUnset
 	}
 	file, err := os.Create(filepath.Join(c.configFolder, filename))
 	if err != nil {

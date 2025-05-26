@@ -118,7 +118,6 @@ func streamToUrlString(data sc.StreamData, method OpenMethod) (string, error) {
 		default:
 			return "", errors.New("Platform " + data.GetService() + " not implemented!")
 		}
-	// TODO: Split into 2 separate
 	case lnkOpenHomePage, lnkOpenMpv:
 		switch data.GetService() {
 		case "angelthump":
@@ -143,8 +142,6 @@ func streamToUrlString(data sc.StreamData, method OpenMethod) (string, error) {
 				}
 			case lnkOpenMpv:
 				var err error
-				// NOTE: This never keeps its query string
-				//       u.RawQuery gets replaced with `q`s values
 				u, err = url.Parse(data.GetName())
 				if err != nil {
 					return "", err

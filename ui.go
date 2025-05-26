@@ -158,6 +158,11 @@ func (ui *UI) Run() error {
 }
 
 func (ui *UI) streamUpdateLoop(ctx context.Context) {
+	setStatus := func(color string, text string) {
+		ui.app.QueueUpdateDraw(func() {
+			ui.pg1.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", color, text))
+		})
+	}
 	defer ui.wg.Done()
 
 	var err error
@@ -174,12 +179,12 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ui.forceRemoteUpdateCh:
-			ui.setStatus("orange", "Sending update...")
+			setStatus("orange", "Sending update...")
 			err = ui.forceRemoteUpdate(ctx)
 			if errors.Is(err, context.Canceled) {
 				return
 			} else if err != nil {
-				ui.setStatus("red", fmt.Sprintf("Error updating: %s", err))
+				setStatus("red", fmt.Sprintf("Error updating: %s", err))
 				continue
 			}
 			continue
@@ -189,19 +194,19 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 			// pass
 		}
 
-		ui.setStatus("orange", "Fetching streams...")
+		setStatus("orange", "Fetching streams...")
 		err = ui.updateStreams(ctx)
 		if errors.Is(err, context.Canceled) {
 			return
 		} else if errors.Is(err, sc.ErrAuthPending) {
-			ui.setStatus("yellow", "Authenticate, then press R")
+			setStatus("yellow", "Authenticate, then press R")
 			continue
 		} else if err != nil {
-			ui.setStatus("red", fmt.Sprintf("Error fetching: %s", err))
+			setStatus("red", fmt.Sprintf("Error fetching: %s", err))
 			continue
 		}
 
-		ui.setStatus(
+		setStatus(
 			"green",
 			fmt.Sprintf(
 				"Fetched %d Twitch streams and %d Strims streams",
@@ -220,12 +225,6 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 			}
 		})
 	}
-}
-
-func (ui *UI) setStatus(color string, text string) {
-	ui.app.QueueUpdateDraw(func() {
-		ui.pg1.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", color, text))
-	})
 }
 
 func (ui *UI) setupMainPage() {
