@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -32,9 +32,6 @@ func main() {
 		false,
 		"Check for streams in the background and serve data over the network",
 	)
-	// TODO: Not sure? :
-	//       Default for -b flag should be http://0.0.0.0 or https://
-	//       but default without should be 0.0.0.0:8181
 	address := flag.String(
 		"a",
 		"http://0.0.0.0:8181",
@@ -72,29 +69,32 @@ func main() {
 
 	var err error
 
-	log.SetFlags(log.Ltime | log.Lshortfile)
-
 	if *background {
+		logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			AddSource: true,
+		}))
+
 		cfg := new(Config)
-		cfg.SetConfigFolder("streamshower")
+		err = cfg.SetConfigFolder("streamshower")
+		if err != nil {
+			logger.Error("error making config folder", "err", err)
+			return
+		}
 		configErr := cfg.Load(ConfigFile)
 		if configErr != nil {
-			// TODO: If ad.configFolder is unset, it will prompt for
-			//        input and then crash anyway when saving data
-			log.Println(
-				"warn: config read failed:",
-				configErr.Error(),
-			)
-			err = cfg.GetFromUserInput()
+			logger.Warn("config read failed", "err", configErr)
+			err = cfg.GetFromEnv()
 			if err != nil {
-				log.Fatalln(err)
+				logger.Error("error reading env", "err", err)
+				return
 			}
 			err = cfg.Save(ConfigFile)
 			if err != nil {
-				log.Fatalln(err)
+				logger.Error("error saving config", "err", err)
+				return
 			}
 		} else {
-			log.Println("Read config data")
+			logger.Info("read config data")
 		}
 
 		ad := new(sc.AuthData)
@@ -103,34 +103,33 @@ func main() {
 		ad.SetUserName(cfg.data.UserName)
 		err = ad.SetCacheFolder(CacheFolder)
 		if err != nil {
-			log.Fatalln(err)
+			logger.Error("error making cache folder", "err", err)
+			return
 		}
 		if *useCache {
 			err = ad.GetCachedData()
 			if err != nil {
-				log.Println(
-					"warn: could not read cached data:",
-					err.Error(),
-				)
+				logger.Warn("cache read failed", "err", configErr)
 			} else {
-				log.Println("Read cached data")
+				logger.Info("read cached data")
 			}
 		}
 
-		bg := sc.NewBG()
-		bg.SetAddress(*address)
-		bg.SetAuthData(ad)
-		bg.SetInterval(*refreshTime)
-		bg.SetRedirect(*redirect)
-		bg.SetLiveCallback(nil)
-		bg.SetOfflineCallback(nil)
-		err = bg.Run()
+		srv := sc.NewServer()
+		srv.SetAddress(*address)
+		srv.SetAuthData(ad)
+		srv.SetInterval(*refreshTime)
+		srv.SetRedirect(*redirect)
+		srv.SetLogger(logger)
+		err = srv.Run()
 		if err != nil {
-			log.Fatalln(err)
+			logger.Error("server exited abnormally", "err", err)
+			return
 		}
 		err = ad.SaveCachedData()
 		if err != nil {
-			log.Fatalln(err)
+			logger.Error("error saving cache", "err", err)
+			return
 		}
 	}
 
@@ -139,7 +138,7 @@ func main() {
 		ui.SetAddress(*address)
 		err = ui.Run()
 		if err != nil {
-			log.Fatalln(err)
+			fmt.Fprintf(os.Stderr, "error running UI: %s", err)
 		}
 	}
 }

@@ -19,25 +19,38 @@ data from the background instance and displays it in an interactive TUI.
 All settings are stored in a config.json file, except for the environment
 variable `$BROWSER` which is used to open links in the TUI.
 
-To generate this file, simply run the program in background mode (`-b`)  and
-provide `Client ID`, `Client Secret`, and `User ID` when prompted.
-
-Currently the recommended way to generate the configuration file when running
-in docker is to run the container interactively for the first run. Example
-
-```console
-
-docker build . -t streamshower
-docker run --name streamshower -p 8181:8181 -it streamshower:latest
+```json
+{
+    "client_id": "xxx",
+    "client_secret": "yyy",
+    "user_name": "twitchuser1"
+}
 ```
 
-Explanation:
+You can also provide them via the environment variables. You can put this in
+a .env file for a Docker deployment. These are then saved internally.
+
+```sh
+CLIENT_ID=xxx
+CLIENT_SECRET=yyy
+USER_NAME=twitchuser1
+```
+
+Then run it as follows.
+
+```console
+docker build . -t streamshower
+docker run --env-file .env --name streamshower -p 8181:8181 -it streamshower:latest
+```
+
+Explanation of environment variables:
 
 `Client ID`: The api key of your Twitch project
 
 `Client Secret`: The secret of your Twitch project
 
 `User ID`: Your Twitch username
+
 
 ## Navigation
 standard vim navigation: `jkl` or arrow keys + enter
