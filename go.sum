@@ -1,5 +1,5 @@
-github.com/HoppenR/streamchecker v0.0.0-20250526104429-32826c1996b5 h1:FcZaxR6xVt0WQTPHy2wwm5JEXghVgNgXWWkcxAHrcOU=
-github.com/HoppenR/streamchecker v0.0.0-20250526104429-32826c1996b5/go.mod h1:f7m1DiJT/rWQI0hStFXcbMPRxhPNezjXwr5poGJt+8I=
+github.com/HoppenR/streamchecker v0.0.0-20250527170212-ea088d7ea6e9 h1:9T/BXfowomyxTjHzq+LfBYr9SlG+2OC2Z/aCN59Lkpo=
+github.com/HoppenR/streamchecker v0.0.0-20250527170212-ea088d7ea6e9/go.mod h1:f7m1DiJT/rWQI0hStFXcbMPRxhPNezjXwr5poGJt+8I=
 github.com/gdamore/encoding v1.0.1 h1:YzKZckdBL6jVt2Gc+5p82qhrGiqMdG/eNs6Wy0u3Uhw=
 github.com/gdamore/encoding v1.0.1/go.mod h1:0Z0cMFinngz9kS1QfMjCP8TY7em3bZYeeklsSDPivEo=
 github.com/gdamore/tcell/v2 v2.8.1 h1:KPNxyqclpWpWQlPLx6Xui1pMk8S+7+R37h3g07997NU=
