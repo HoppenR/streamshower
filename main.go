@@ -118,6 +118,7 @@ func main() {
 		srv.SetAuthData(ad)
 		srv.SetInterval(*refreshTime)
 		srv.SetRedirect(*redirect)
+		srv.EnableStrims(false)
 		srv.SetLogger(logger)
 		err = srv.Run()
 		if err != nil {
