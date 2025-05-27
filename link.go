@@ -39,32 +39,32 @@ const (
 
 var urlBuilders = map[OpenMethod]UrlTemplateSource{
 	lnkOpenEmbed: {MethodTemplates: map[string]UrlTemplates{
-		"angelthump": {Host: "player.angelthump.com", Values: V{"channel": "{{.Name}}"}},
+		"angelthump": {Host: "player.angelthump.com", Values: V{"channel": "{{.NameI}}"}},
 		"m3u8":       {Host: "strims.gg", Path: "m3u8/{{.Name}}"},
-		"twitch":     {Host: "player.twitch.tv", Values: V{"channel": "{{.Name}}", "parent": "strims.gg"}},
+		"twitch":     {Host: "player.twitch.tv", Values: V{"channel": "{{.NameI}}", "parent": "strims.gg"}},
 		"twitch-vod": {Host: "player.twitch.tv", Values: V{"video": "v{{.Name}}", "parent": "strims.gg"}},
 		"youtube":    {Host: "www.youtube.com", Path: "embed/{{.Name}}", Values: V{"autoplay": "true"}},
 	}},
 	lnkOpenHomePage: {MethodTemplates: map[string]UrlTemplates{
-		"angelthump": {Host: "angelthump.com", Path: "{{.Name}}"},
+		"angelthump": {Host: "angelthump.com", Path: "{{.NameI}}"},
 		"m3u8":       {Host: "strims.gg", Path: "m3u8/{{.Name}}"},
-		"twitch":     {Host: "www.twitch.tv", Path: "{{.Name}}"},
+		"twitch":     {Host: "www.twitch.tv", Path: "{{.NameI}}"},
 		"twitch-vod": {Host: "www.twitch.tv", Path: "videos/{{.Name}}"},
 		"youtube":    {Host: "www.youtube.com", Path: "watch", Values: V{"v": "{{.Name}}"}},
 	}},
 	lnkOpenMpv: {MethodTemplates: map[string]UrlTemplates{
 		"angelthump": {Host: "ams-haproxy.angelthump.com", Path: "hls/{{.Name}}/index.m3u8"},
 		"m3u8":       {Host: "{{.Name}}"},
-		"twitch":     {Host: "www.twitch.tv", Path: "{{.Name}}"},
+		"twitch":     {Host: "www.twitch.tv", Path: "{{.NameI}}"},
 		"twitch-vod": {Host: "www.twitch.tv", Path: "videos/{{.Name}}"},
 		"youtube":    {Host: "www.youtube.com", Path: "watch", Values: V{"v": "{{.Name}}"}},
 	}},
 	lnkOpenStrims: {
-		DefaultTemplate: &UrlTemplates{Host: "strims.gg", Path: "{{.Service}}/{{.Name}}"},
+		DefaultTemplate: &UrlTemplates{Host: "strims.gg", Path: "{{.Service}}/{{.NameI}}"},
 	},
 	lnkOpenChat: {
 		MethodTemplates: map[string]UrlTemplates{
-			"twitch": {Host: "www.twitch.tv", Path: "popout/{{.Name}}/chat"},
+			"twitch": {Host: "www.twitch.tv", Path: "popout/{{.NameI}}/chat"},
 		},
 		DefaultTemplate: &UrlTemplates{Host: "chat.strims.gg"},
 	},
@@ -167,7 +167,8 @@ func executeTemplateString(templateString string, data sc.StreamData) (string, e
 	}
 	var buffer bytes.Buffer
 	err = tmpl.Execute(&buffer, map[string]string{
-		"Name":    strings.ToLower(data.GetName()),
+		"NameI":   strings.ToLower(data.GetName()),
+		"Name":    data.GetName(),
 		"Service": data.GetService(),
 	})
 	return buffer.String(), err
