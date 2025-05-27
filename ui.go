@@ -16,7 +16,7 @@ import (
 )
 
 const DefaultTwitchFilter = "(?i)"
-const DefaultRustlerMin = "3"
+const DefaultRustlerMin = "2"
 
 type UI struct {
 	app   *tview.Application
@@ -53,6 +53,7 @@ type MainPage struct {
 	twitchList     *tview.List
 	streamInfoText *tview.TextView
 	appStatusText  *tview.TextView
+	strimsVisible  bool
 }
 
 func (ui *UI) SetAddress(address string) {
@@ -107,6 +108,7 @@ func NewUI() *UI {
 			streamInfoText: tview.NewTextView(),
 			appStatusText:  tview.NewTextView(),
 			streams:        new(sc.Streams),
+			strimsVisible:  false,
 		},
 		pg2: &FilterInput{
 			con:   tview.NewGrid(),
@@ -243,7 +245,9 @@ func (ui *UI) setupMainPage() {
 	ui.pg1.twitchList.SetTitle("Twitch")
 	ui.pg1.twitchList.SetSelectedFocusOnly(true)
 	// StrimsList
-	ui.pg1.streamsCon.AddItem(ui.pg1.strimsList, 0, 2, false)
+	if ui.pg1.strimsVisible {
+		ui.pg1.streamsCon.AddItem(ui.pg1.strimsList, 0, 2, false)
+	}
 	ui.pg1.strimsList.SetChangedFunc(ui.updateStrimsStreamInfo)
 	ui.pg1.strimsList.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg1.strimsList.SetBorder(true)

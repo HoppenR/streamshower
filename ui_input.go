@@ -28,6 +28,7 @@ var SHORTCUT_HELP = strings.Join(
 		"[red::u]i[-::-]Info",
 		"[red::u]f[-::-]OpenFilter",
 		"[red::u]F[-::-]ClearFilter",
+		"[red::u]n[-::-]ToggleStrims",
 		"[red::u]r[-::-]Refresh",
 		"[red::u]q[-::-]Quit",
 		"\n",
@@ -101,19 +102,22 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 				ui.pg1.focusedList.SetCurrentItem(listIdx - 1)
 			}
 			return nil
+		case 'n':
+			ui.toggleStrimsList()
+			return nil
 		case 'f':
-			switch ui.pg1.focusedList.GetTitle() {
-			case "Twitch":
+			switch ui.pg1.focusedList {
+			case ui.pg1.twitchList:
 				ui.pages.ShowPage("Filter-Twitch")
-			case "Strims":
+			case ui.pg1.strimsList:
 				ui.pages.ShowPage("Filter-Strims")
 			}
 			return nil
 		case 'F':
-			switch ui.pg1.focusedList.GetTitle() {
-			case "Twitch":
+			switch ui.pg1.focusedList {
+			case ui.pg1.twitchList:
 				ui.pg2.input.SetText(DefaultTwitchFilter)
-			case "Strims":
+			case ui.pg1.strimsList:
 				ui.pg3.input.SetText(DefaultRustlerMin)
 			}
 			return nil
@@ -124,11 +128,11 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			handleFinish(ui.openSelectedStream(lnkOpenMpv))
 			return nil
 		case 'o':
-			switch ui.pg1.focusedList.GetTitle() {
-			case "Twitch":
+			switch ui.pg1.focusedList {
+			case ui.pg1.twitchList:
 				ui.app.SetFocus(ui.pg1.strimsList)
 				ui.refreshStrimsList()
-			case "Strims":
+			case ui.pg1.strimsList:
 				ui.app.SetFocus(ui.pg1.twitchList)
 				ui.refreshTwitchList()
 			}
@@ -180,11 +184,11 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		}
 		return nil
 	case tcell.KeyCtrlW:
-		switch ui.pg1.focusedList.GetTitle() {
-		case "Twitch":
+		switch ui.pg1.focusedList {
+		case ui.pg1.twitchList:
 			ui.app.SetFocus(ui.pg1.strimsList)
 			ui.refreshStrimsList()
-		case "Strims":
+		case ui.pg1.strimsList:
 			ui.app.SetFocus(ui.pg1.twitchList)
 			ui.refreshTwitchList()
 		}

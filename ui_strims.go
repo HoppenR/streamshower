@@ -85,12 +85,26 @@ func (ui *UI) updateStrimsStreamInfo(ix int, pri, sec string, _ rune) {
 		add("No results")
 	} else {
 		selStream := ui.pg1.streams.Strims.Data[index]
-		selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
+		if selStream.Service == "m3u8" {
+			selStream.Title = selStream.URL
+		} else {
+			selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
+		}
 		add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
 		add(fmt.Sprintf("[red]Rustlers[-]: %d [lightgray](%d afk)[-]\n", selStream.Rustlers, selStream.AfkRustlers))
 		add(fmt.Sprintf("[red]Service[-]: %s\n", selStream.Service))
 		add(fmt.Sprintf("[red]Viewers[-]: %v\n", selStream.Viewers))
 		add(fmt.Sprintf("[red]Live[-]: %v\n", selStream.Live))
 		add(fmt.Sprintf("[red]AFK[-]: %v\n", selStream.Afk))
+	}
+}
+
+func (ui *UI) toggleStrimsList () {
+	if ui.pg1.strimsVisible {
+		ui.pg1.streamsCon.RemoveItem(ui.pg1.strimsList)
+		ui.pg1.strimsVisible = false
+	} else {
+		ui.pg1.streamsCon.AddItem(ui.pg1.strimsList, 0, 2, false)
+		ui.pg1.strimsVisible = true
 	}
 }
