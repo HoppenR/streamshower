@@ -24,10 +24,11 @@ type UrlTemplateSource struct {
 type UrlTemplates struct {
 	Host   string
 	Path   string
-	Values V
+	Query  Values
+	RawURL string
 }
 
-type V map[string]string // simpler, pseudo url.Values helper struct
+type Values map[string]string // simpler, pseudo url.Values helper struct
 
 const (
 	lnkOpenEmbed OpenMethod = iota
@@ -39,25 +40,25 @@ const (
 
 var urlBuilders = map[OpenMethod]UrlTemplateSource{
 	lnkOpenEmbed: {MethodTemplates: map[string]UrlTemplates{
-		"angelthump": {Host: "player.angelthump.com", Values: V{"channel": "{{.NameI}}"}},
+		"angelthump": {Host: "player.angelthump.com", Query: Values{"channel": "{{.NameI}}"}},
 		"m3u8":       {Host: "strims.gg", Path: "m3u8/{{.Name}}"},
-		"twitch":     {Host: "player.twitch.tv", Values: V{"channel": "{{.NameI}}", "parent": "strims.gg"}},
-		"twitch-vod": {Host: "player.twitch.tv", Values: V{"video": "v{{.Name}}", "parent": "strims.gg"}},
-		"youtube":    {Host: "www.youtube.com", Path: "embed/{{.Name}}", Values: V{"autoplay": "true"}},
+		"twitch":     {Host: "player.twitch.tv", Query: Values{"channel": "{{.NameI}}", "parent": "strims.gg"}},
+		"twitch-vod": {Host: "player.twitch.tv", Query: Values{"video": "v{{.Name}}", "parent": "strims.gg"}},
+		"youtube":    {Host: "www.youtube.com", Path: "embed/{{.Name}}", Query: Values{"autoplay": "true"}},
 	}},
 	lnkOpenHomePage: {MethodTemplates: map[string]UrlTemplates{
 		"angelthump": {Host: "angelthump.com", Path: "{{.NameI}}"},
 		"m3u8":       {Host: "strims.gg", Path: "m3u8/{{.Name}}"},
 		"twitch":     {Host: "www.twitch.tv", Path: "{{.NameI}}"},
 		"twitch-vod": {Host: "www.twitch.tv", Path: "videos/{{.Name}}"},
-		"youtube":    {Host: "www.youtube.com", Path: "watch", Values: V{"v": "{{.Name}}"}},
+		"youtube":    {Host: "www.youtube.com", Path: "watch", Query: Values{"v": "{{.Name}}"}},
 	}},
 	lnkOpenMpv: {MethodTemplates: map[string]UrlTemplates{
 		"angelthump": {Host: "ams-haproxy.angelthump.com", Path: "hls/{{.Name}}/index.m3u8"},
-		"m3u8":       {Host: "{{.Name}}"},
+		"m3u8":       {RawURL: "{{.Name}}"},
 		"twitch":     {Host: "www.twitch.tv", Path: "{{.NameI}}"},
 		"twitch-vod": {Host: "www.twitch.tv", Path: "videos/{{.Name}}"},
-		"youtube":    {Host: "www.youtube.com", Path: "watch", Values: V{"v": "{{.Name}}"}},
+		"youtube":    {Host: "www.youtube.com", Path: "watch", Query: Values{"v": "{{.Name}}"}},
 	}},
 	lnkOpenStrims: {
 		DefaultTemplate: &UrlTemplates{Host: "strims.gg", Path: "{{.Service}}/{{.NameI}}"},
@@ -83,11 +84,7 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 	if err != nil {
 		return err
 	}
-	executable, err := exec.LookPath(program)
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command(executable, url.String())
+	cmd := exec.Command(program, url.String())
 	// Set the new process process group-ID to its process ID
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Pgid:    0,
@@ -99,15 +96,15 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 func (ui *UI) getSelectedStreamData() (sc.StreamData, error) {
 	listIdx := ui.pg1.focusedList.GetCurrentItem()
 	primaryText, _ := ui.pg1.focusedList.GetItemText(listIdx)
-	switch ui.pg1.focusedList.GetTitle() {
-	case "Twitch":
+	switch ui.pg1.focusedList {
+	case ui.pg1.twitchList:
 		ix := slices.IndexFunc(ui.pg1.streams.Twitch.Data, func(sd sc.TwitchStreamData) bool {
 			return sd.UserName == primaryText
 		})
 		if ix != -1 {
 			return &ui.pg1.streams.Twitch.Data[ix], nil
 		}
-	case "Strims":
+	case ui.pg1.strimsList:
 		ix := slices.IndexFunc(ui.pg1.streams.Strims.Data, func(sd sc.StrimsStreamData) bool {
 			return sd.Channel == primaryText
 		})
@@ -135,6 +132,14 @@ func streamToUrl(data sc.StreamData, method OpenMethod) (*url.URL, error) {
 }
 
 func (ut *UrlTemplates) apply(data sc.StreamData) (*url.URL, error) {
+	if ut.RawURL != "" {
+		raw, err := executeTemplateString(ut.RawURL, data)
+		if err != nil {
+			return nil, err
+		}
+		return url.Parse(raw)
+	}
+
 	newHost, err := executeTemplateString(ut.Host, data)
 	if err != nil {
 		return nil, err
@@ -143,8 +148,8 @@ func (ut *UrlTemplates) apply(data sc.StreamData) (*url.URL, error) {
 	if err != nil {
 		return nil, err
 	}
-	newValues := make(url.Values)
-	for key, value := range ut.Values {
+	newValues := make(url.Values, len(ut.Query))
+	for key, value := range ut.Query {
 		newParam, err := executeTemplateString(value, data)
 		if err != nil {
 			return nil, err
@@ -177,7 +182,7 @@ func executeTemplateString(templateString string, data sc.StreamData) (string, e
 func (ui *UI) getProgram(method OpenMethod) (string, error) {
 	switch method {
 	case lnkOpenMpv:
-		return "/usr/bin/mpv", nil
+		return "mpv", nil
 	default:
 		browser := os.Getenv("BROWSER")
 		if browser == "" {
