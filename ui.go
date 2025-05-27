@@ -255,6 +255,7 @@ func (ui *UI) setupMainPage() {
 	// ErrorInfo
 	ui.pg1.infoCon.AddItem(ui.pg1.appStatusText, 3, 0, false)
 	ui.pg1.appStatusText.SetBackgroundColor(tcell.ColorDefault)
+	ui.pg1.appStatusText.SetTitle("Status")
 	ui.pg1.appStatusText.SetBorder(true)
 	ui.pg1.appStatusText.SetDynamicColors(true)
 	ui.pg1.appStatusText.SetTextAlign(tview.AlignCenter)
@@ -273,8 +274,8 @@ func (ui *UI) setupMainPage() {
 		ui.pg1.streamInfoText.Clear()
 		if w >= 90 {
 			ui.pg1.streamInfoText.Write([]byte(SHORTCUT_HELP))
-			ui.pg1.streamInfoText.Write([]byte(strings.Repeat(" ", 16)))
 			if !ui.pg1.streams.LastFetched.IsZero() {
+				ui.pg1.streamInfoText.Write([]byte(strings.Repeat(" ", 25)))
 				ui.pg1.streamInfoText.Write([]byte(ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp)))
 			}
 		}

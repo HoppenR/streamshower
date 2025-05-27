@@ -26,15 +26,16 @@ var SHORTCUT_HELP = strings.Join(
 		"\n",
 		"[red]{o|^w}[-]List",
 		"[red::u]i[-::-]Info",
-		"[red::u]f[-::-]Filter",
+		"[red::u]f[-::-]OpenFilter",
 		"[red::u]F[-::-]ClearFilter",
 		"[red::u]r[-::-]Refresh",
 		"[red::u]q[-::-]Quit",
 		"\n",
-		"[red]{l|→|↵|^j}[-]Open Embed",
-		"[red::u]w[-::-]Open Website",
-		"[red::u]s[-::-]Open Strims",
-		"[red::u]m[-::-]Open Mpv",
+		"Open [red]{l|→|↵|^j}[-]Embed",
+		"[red::u]w[-::-]Website",
+		"[red::u]s[-::-]Strims",
+		"[red::u]c[-::-]Chat",
+		"[red::u]m[-::-]Mpv",
 	},
 	" ",
 )
@@ -66,6 +67,9 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	switch event.Key() {
 	case tcell.KeyRune:
 		switch event.Rune() {
+		case 'c':
+			handleFinish(ui.openSelectedStream(lnkOpenChat))
+			return nil
 		case 'g':
 			ui.pg1.focusedList.SetCurrentItem(0)
 			return nil
