@@ -10,6 +10,10 @@ import (
 )
 
 func (ui *UI) refreshStrimsList() {
+	if ui.pg1.focusedList != ui.pg1.strimsList {
+		ui.pg1.strimsList.SetChangedFunc(nil)
+		defer ui.pg1.strimsList.SetChangedFunc(ui.updateStrimsStreamInfo)
+	}
 	oldIdx := ui.pg1.strimsList.GetCurrentItem()
 	ui.updateStrimsList(ui.pg3.input.GetText())
 	ui.pg1.strimsList.SetCurrentItem(oldIdx)
@@ -82,6 +86,7 @@ func (ui *UI) updateStrimsStreamInfo(ix int, pri, sec string, _ rune) {
 	}
 	ui.pg1.streamInfo.Clear()
 	if index == -1 {
+		ui.pg1.streamInfo.SetTitle("Stream Info")
 		add("No results")
 	} else {
 		selStream := ui.pg1.streams.Strims.Data[index]
@@ -90,6 +95,7 @@ func (ui *UI) updateStrimsStreamInfo(ix int, pri, sec string, _ rune) {
 		} else {
 			selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
 		}
+		ui.pg1.streamInfo.SetTitle(selStream.Channel)
 		add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
 		add(fmt.Sprintf("[red]Rustlers[-]: %d [lightgray](%d afk)[-]\n", selStream.Rustlers, selStream.AfkRustlers))
 		add(fmt.Sprintf("[red]Service[-]: %s\n", selStream.Service))
@@ -99,12 +105,24 @@ func (ui *UI) updateStrimsStreamInfo(ix int, pri, sec string, _ rune) {
 	}
 }
 
-func (ui *UI) toggleStrimsList () {
+func (ui *UI) toggleStrimsList() {
+	if ui.pg1.strimsVisible {
+		ui.disableStrimsList()
+	} else {
+		ui.enableStrimsList()
+	}
+}
+
+func (ui *UI) enableStrimsList() {
+	if !ui.pg1.strimsVisible {
+		ui.pg1.streamsCon.AddItem(ui.pg1.strimsList, 0, 2, false)
+		ui.pg1.strimsVisible = true
+	}
+}
+
+func (ui *UI) disableStrimsList() {
 	if ui.pg1.strimsVisible {
 		ui.pg1.streamsCon.RemoveItem(ui.pg1.strimsList)
 		ui.pg1.strimsVisible = false
-	} else {
-		ui.pg1.streamsCon.AddItem(ui.pg1.strimsList, 0, 2, false)
-		ui.pg1.strimsVisible = true
 	}
 }
