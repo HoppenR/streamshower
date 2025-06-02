@@ -43,21 +43,22 @@ type DialogueBox struct {
 }
 
 type MainPage struct {
-	con            *tview.Flex
-	focusedList    *tview.List
-	streamInfo     *tview.TextView
-	streams        *sc.Streams
-	streamsCon     *tview.Flex
-	infoCon        *tview.Flex
-	strimsList     *tview.List
-	twitchList     *tview.List
-	streamInfoText *tview.TextView
-	appStatusText  *tview.TextView
-	strimsVisible  bool
+	con             *tview.Flex
+	focusedList     *tview.List
+	streamInfo      *tview.TextView
+	streams         *sc.Streams
+	streamsCon      *tview.Flex
+	infoCon         *tview.Flex
+	strimsList      *tview.List
+	twitchList      *tview.List
+	keybindInfoText *tview.TextView
+	appStatusText   *tview.TextView
+	strimsVisible   bool
 }
 
-func (ui *UI) SetAddress(address string) {
+func (ui *UI) SetAddress(address string) *UI {
 	ui.addr = address
+	return ui
 }
 
 func (ui *UI) updateStreams(ctx context.Context) error {
@@ -99,16 +100,16 @@ func NewUI() *UI {
 		app:   tview.NewApplication(),
 		pages: tview.NewPages(),
 		pg1: &MainPage{
-			con:            tview.NewFlex(),
-			streamsCon:     tview.NewFlex(),
-			infoCon:        tview.NewFlex(),
-			twitchList:     tview.NewList(),
-			strimsList:     tview.NewList(),
-			streamInfo:     tview.NewTextView(),
-			streamInfoText: tview.NewTextView(),
-			appStatusText:  tview.NewTextView(),
-			streams:        new(sc.Streams),
-			strimsVisible:  false,
+			con:             tview.NewFlex(),
+			streamsCon:      tview.NewFlex(),
+			infoCon:         tview.NewFlex(),
+			twitchList:      tview.NewList(),
+			strimsList:      tview.NewList(),
+			streamInfo:      tview.NewTextView(),
+			keybindInfoText: tview.NewTextView(),
+			appStatusText:   tview.NewTextView(),
+			streams:         new(sc.Streams),
+			strimsVisible:   true,
 		},
 		pg2: &FilterInput{
 			con:   tview.NewGrid(),
@@ -201,31 +202,29 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		if errors.Is(err, context.Canceled) {
 			return
 		} else if errors.Is(err, sc.ErrAuthPending) {
-			setStatus("yellow", "Authenticate, then press R")
+			setStatus("yellow", "press R to refresh after authenticating")
 			continue
 		} else if err != nil {
 			setStatus("red", fmt.Sprintf("Error fetching: %s", err))
 			continue
 		}
 
-		setStatus(
-			"green",
-			fmt.Sprintf(
-				"Fetched %d Twitch streams and %d Strims streams",
-				ui.pg1.streams.Twitch.Len(),
-				ui.pg1.streams.Strims.Len(),
-			),
-		)
-		ui.app.QueueUpdateDraw(func() {
-			switch ui.pg1.focusedList {
-			case ui.pg1.twitchList:
-				ui.refreshStrimsList()
-				ui.refreshTwitchList()
-			case ui.pg1.strimsList:
-				ui.refreshTwitchList()
-				ui.refreshStrimsList()
+		ui.app.QueueUpdate(func() {
+			if ui.pg1.streams.Strims.Len() == 0 {
+				ui.app.SetFocus(ui.pg1.twitchList)
+				ui.pg1.focusedList = ui.pg1.twitchList
+				ui.disableStrimsList()
+			} else {
+				ui.enableStrimsList()
 			}
+			ui.refreshTwitchList()
+			ui.refreshStrimsList()
 		})
+		setStatus("green", fmt.Sprintf(
+			"Fetched %d Twitch streams and %d Strims streams",
+			ui.pg1.streams.Twitch.Len(),
+			ui.pg1.streams.Strims.Len(),
+		))
 	}
 }
 
@@ -245,9 +244,7 @@ func (ui *UI) setupMainPage() {
 	ui.pg1.twitchList.SetTitle("Twitch")
 	ui.pg1.twitchList.SetSelectedFocusOnly(true)
 	// StrimsList
-	if ui.pg1.strimsVisible {
-		ui.pg1.streamsCon.AddItem(ui.pg1.strimsList, 0, 2, false)
-	}
+	ui.pg1.streamsCon.AddItem(ui.pg1.strimsList, 0, 2, false)
 	ui.pg1.strimsList.SetChangedFunc(ui.updateStrimsStreamInfo)
 	ui.pg1.strimsList.SetBackgroundColor(tcell.ColorDefault)
 	ui.pg1.strimsList.SetBorder(true)
@@ -259,7 +256,7 @@ func (ui *UI) setupMainPage() {
 	// ErrorInfo
 	ui.pg1.infoCon.AddItem(ui.pg1.appStatusText, 3, 0, false)
 	ui.pg1.appStatusText.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg1.appStatusText.SetTitle("Status")
+	ui.pg1.appStatusText.SetTitle("Status (" + ui.addr + ")")
 	ui.pg1.appStatusText.SetBorder(true)
 	ui.pg1.appStatusText.SetDynamicColors(true)
 	ui.pg1.appStatusText.SetTextAlign(tview.AlignCenter)
@@ -269,48 +266,70 @@ func (ui *UI) setupMainPage() {
 	ui.pg1.streamInfo.SetBorder(true)
 	ui.pg1.streamInfo.SetInputCapture(ui.streamInfoInputHandler)
 	ui.pg1.streamInfo.SetDynamicColors(true)
-	ui.pg1.streamInfo.SetTitle("Stream Info (" + ui.addr + ")")
+	ui.pg1.streamInfo.SetTitle("Stream Info")
 	// TextInfo
-	ui.pg1.infoCon.AddItem(ui.pg1.streamInfoText, 3, 0, false)
-	ui.pg1.streamInfoText.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg1.streamInfoText.SetDynamicColors(true)
-	ui.pg1.streamInfoText.SetDrawFunc(func(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
-		ui.pg1.streamInfoText.Clear()
-		if w >= 90 {
-			ui.pg1.streamInfoText.Write([]byte(SHORTCUT_HELP))
-			if !ui.pg1.streams.LastFetched.IsZero() {
-				ui.pg1.streamInfoText.Write([]byte(strings.Repeat(" ", 25)))
-				ui.pg1.streamInfoText.Write([]byte(ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp)))
-			}
-		}
-		return x, y, w, h
+	ui.pg1.infoCon.AddItem(ui.pg1.keybindInfoText, 3, 0, false)
+	ui.pg1.keybindInfoText.SetBackgroundColor(tcell.ColorDefault)
+	ui.pg1.keybindInfoText.SetDynamicColors(true)
+	ui.pg1.keybindInfoText.SetDrawFunc(ui.updateMainKeybindInfo)
+
+	ui.pg1.streamInfo.SetFocusFunc(func() {
+		ui.pg1.keybindInfoText.SetDrawFunc(ui.updateInfowinKeybindInfo)
+	})
+	ui.pg1.streamInfo.SetBlurFunc(func() {
+		ui.pg1.keybindInfoText.SetDrawFunc(ui.updateMainKeybindInfo)
 	})
 }
 
 func (ui *UI) setupRefreshDialoguePage() {
 	ui.pg4.modal.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg4.modal.SetText("Force refresh of server's streams?")
+	ui.pg4.modal.SetText("Refresh streams?")
 	buttonLabels := []string{"Refresh", "Refresh Server Data", "Cancel"}
 	ui.pg4.modal.AddButtons(buttonLabels)
-	ui.pg4.modal.SetDoneFunc(func(buttonIndex int, buttonLabel string) {
-		if buttonIndex == 0 || buttonIndex == 1 {
-			ui.pg4.modal.SetText("Loading...")
-			ui.app.ForceDraw()
-			if buttonIndex == 1 {
-				select {
-				case ui.forceRemoteUpdateCh <- struct{}{}:
-				default:
-					ui.pg1.appStatusText.SetText("[red]Skipped remote update, try again later...[-]")
-				}
-			}
+	ui.pg4.modal.SetDoneFunc(ui.refreshStreams)
+}
+
+func (ui *UI) refreshStreams(buttonIndex int, buttonLabel string) {
+	if buttonIndex == 0 || buttonIndex == 1 {
+		ui.pg4.modal.SetText("Loading...")
+		ui.app.ForceDraw()
+		if buttonIndex == 1 {
 			select {
-			case ui.updateStreamsCh <- struct{}{}:
+			case ui.forceRemoteUpdateCh <- struct{}{}:
 			default:
-				ui.pg1.appStatusText.SetText("[red]Skipped fetching streams, try again later...[-]")
+				ui.pg1.appStatusText.SetText("[red]Skipped remote update, try again later...[-]")
 			}
-			ui.pg4.modal.SetText("Force refresh of server's streams?")
 		}
-		ui.pages.HidePage("Refresh-Dialogue")
-		ui.app.SetFocus(ui.pg1.focusedList)
-	})
+		select {
+		case ui.updateStreamsCh <- struct{}{}:
+		default:
+			ui.pg1.appStatusText.SetText("[red]Skipped fetching streams, try again later...[-]")
+		}
+		ui.pg4.modal.SetText("Force refresh of server's streams?")
+	}
+	ui.pages.HidePage("Refresh-Dialogue")
+	ui.app.SetFocus(ui.pg1.focusedList)
+}
+
+func (ui *UI) updateMainKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
+	ui.pg1.keybindInfoText.Clear()
+	if w >= 90 {
+		ui.pg1.keybindInfoText.Write([]byte(SHORTCUT_MAINWIN_HELP))
+		if !ui.pg1.streams.LastFetched.IsZero() {
+			ui.pg1.keybindInfoText.Write([]byte(strings.Repeat(" ", 25)))
+			ui.pg1.keybindInfoText.Write([]byte(ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp)))
+		}
+	}
+	return x, y, w, h
+}
+
+func (ui *UI) updateInfowinKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
+	ui.pg1.keybindInfoText.Clear()
+	if w >= 15 {
+		ui.pg1.keybindInfoText.Write([]byte(SHORTCUT_INFOWIN_HELP))
+		if !ui.pg1.streams.LastFetched.IsZero() {
+			ui.pg1.keybindInfoText.Write([]byte(ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp)))
+		}
+	}
+	return x, y, w, h
 }

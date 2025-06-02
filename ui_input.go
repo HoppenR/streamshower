@@ -8,7 +8,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-var SHORTCUT_HELP = strings.Join(
+var SHORTCUT_MAINWIN_HELP = strings.Join(
 	[]string{
 		"",
 		"[red]{↓|j|^n}[-]↓",
@@ -41,6 +41,16 @@ var SHORTCUT_HELP = strings.Join(
 	" ",
 )
 
+var SHORTCUT_INFOWIN_HELP = strings.Join(
+	[]string{
+		"",
+		"[red]{i|q}[-]Back",
+		"\n",
+		"\n",
+	},
+	" ",
+)
+
 func (ui *UI) streamInfoInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	switch event.Key() {
 	case tcell.KeyRune:
@@ -49,6 +59,14 @@ func (ui *UI) streamInfoInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			ui.pg1.con.ResizeItem(ui.pg1.streamsCon, 0, 1)
 			ui.app.SetFocus(ui.pg1.focusedList)
 			return nil
+			// case 'u':
+			// 	data, err := ui.getSelectedStreamData()
+			// 	if err != nil {
+			// 		return nil
+			// 	}
+			// 	if data.IsFollowed() {
+			// 		sc.UnfollowStream(data)
+			// 	}
 		}
 	}
 	return event
@@ -62,7 +80,11 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		}
 		ui.app.Stop()
 	}
-	ui.pg1.focusedList = ui.app.GetFocus().(*tview.List)
+	var ok bool
+	ui.pg1.focusedList, ok = ui.app.GetFocus().(*tview.List)
+	if !ok {
+		return event
+	}
 	listCnt := ui.pg1.focusedList.GetItemCount()
 	listIdx := ui.pg1.focusedList.GetCurrentItem()
 	switch event.Key() {
@@ -104,6 +126,8 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			return nil
 		case 'n':
 			ui.toggleStrimsList()
+			ui.app.SetFocus(ui.pg1.twitchList)
+			ui.refreshTwitchList()
 			return nil
 		case 'f':
 			switch ui.pg1.focusedList {
@@ -128,12 +152,15 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			handleFinish(ui.openSelectedStream(lnkOpenMpv))
 			return nil
 		case 'o':
+			ui.enableStrimsList()
 			switch ui.pg1.focusedList {
 			case ui.pg1.twitchList:
 				ui.app.SetFocus(ui.pg1.strimsList)
+				ui.pg1.focusedList = ui.pg1.strimsList
 				ui.refreshStrimsList()
 			case ui.pg1.strimsList:
 				ui.app.SetFocus(ui.pg1.twitchList)
+				ui.pg1.focusedList = ui.pg1.twitchList
 				ui.refreshTwitchList()
 			}
 			return nil
@@ -142,6 +169,9 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			return nil
 		case 'r':
 			ui.pages.ShowPage("Refresh-Dialogue")
+			return nil
+		case 'R':
+			ui.refreshStreams(0, "Refresh")
 			return nil
 		case 's':
 			handleFinish(ui.openSelectedStream(lnkOpenStrims))
@@ -184,12 +214,15 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		}
 		return nil
 	case tcell.KeyCtrlW:
+		ui.enableStrimsList()
 		switch ui.pg1.focusedList {
 		case ui.pg1.twitchList:
 			ui.app.SetFocus(ui.pg1.strimsList)
+			ui.pg1.focusedList = ui.pg1.strimsList
 			ui.refreshStrimsList()
 		case ui.pg1.strimsList:
 			ui.app.SetFocus(ui.pg1.twitchList)
+			ui.pg1.focusedList = ui.pg1.twitchList
 			ui.refreshTwitchList()
 		}
 		return nil

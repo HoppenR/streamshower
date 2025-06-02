@@ -15,10 +15,6 @@ const (
 	CacheFolder = "streamshower"
 )
 
-// TODO(sc): Support disabling/enabling twitch/strims fetching
-//           [ ] Add flags
-//           [ ] Send empty data to client requests for disabled platform
-
 // Streamshower
 // TODO(ss): [ ] '/': Search instead of filter.
 // TODO(ss): [ ] On-demand get start time for angelthump streams
@@ -118,7 +114,6 @@ func main() {
 		srv.SetAuthData(ad)
 		srv.SetInterval(*refreshTime)
 		srv.SetRedirect(*redirect)
-		srv.EnableStrims(false)
 		srv.SetLogger(logger)
 		err = srv.Run()
 		if err != nil {

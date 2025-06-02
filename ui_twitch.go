@@ -12,6 +12,10 @@ import (
 )
 
 func (ui *UI) refreshTwitchList() {
+	if ui.pg1.focusedList != ui.pg1.twitchList {
+		ui.pg1.twitchList.SetChangedFunc(nil)
+		defer ui.pg1.twitchList.SetChangedFunc(ui.updateTwitchStreamInfo)
+	}
 	oldIdx := ui.pg1.twitchList.GetCurrentItem()
 	ui.updateTwitchList(ui.pg2.input.GetText())
 	ui.pg1.twitchList.SetCurrentItem(oldIdx)
@@ -53,7 +57,7 @@ func (ui *UI) setupFilterTwitchPage() {
 
 func (ui *UI) updateTwitchList(filter string) {
 	ui.pg1.twitchList.Clear()
-	ixs := ui.matchTwitchListIndex(filter, ui.pg2.inverted)
+	ixs := ui.matchTwitchListIndex(filter)
 	if ixs == nil {
 		ui.pg1.twitchList.AddItem("", "", 0, nil)
 		return
@@ -70,7 +74,7 @@ func (ui *UI) updateTwitchList(filter string) {
 }
 
 func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
-	var index = -1
+	var index int = -1
 	for i, v := range ui.pg1.streams.Twitch.Data {
 		if pri == v.UserName {
 			index = i
@@ -82,6 +86,7 @@ func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
 	}
 	ui.pg1.streamInfo.Clear()
 	if index == -1 {
+		ui.pg1.streamInfo.SetTitle("Stream Info")
 		add("No results")
 	} else {
 		selStream := ui.pg1.streams.Twitch.Data[index]
@@ -90,6 +95,7 @@ func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
 			selStream.GameName = "[::d]None[::-]"
 		}
 		selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
+		ui.pg1.streamInfo.SetTitle(selStream.UserName)
 		add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
 		add(fmt.Sprintf("[red]Viewers[-]: %d\n", selStream.ViewerCount))
 		add(fmt.Sprintf("[red]Game[-]: %s\n", selStream.GameName))
@@ -106,32 +112,21 @@ func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
 	}
 }
 
-func (ui *UI) matchTwitchListIndex(filter string, inverted bool) []int {
+func (ui *UI) matchTwitchListIndex(filter string) []int {
 	var ixs []int
 	re, err := regexp.Compile(filter)
 	if err != nil {
 		ui.pg2.input.SetBorderColor(tcell.ColorRed)
-	} else {
-		ui.pg2.input.SetBorderColor(tcell.ColorDefault)
-	}
-	for i, v := range ui.pg1.streams.Twitch.Data {
-		if err != nil {
+		for i := range ui.pg1.streams.Twitch.Data {
 			ixs = append(ixs, i)
-			continue
 		}
-		matches := []bool{
-			re.MatchString(v.GameName),
-			re.MatchString(v.Title),
-			re.MatchString(v.UserName),
-		}
-		valid := inverted
-		for _, v := range matches {
-			if v {
-				valid = !valid
-				break
-			}
-		}
-		if valid {
+		return ixs
+	}
+	ui.pg2.input.SetBorderColor(tcell.ColorDefault)
+	for i, v := range ui.pg1.streams.Twitch.Data {
+		var match func(string) bool = re.MatchString
+		matched := match(v.GameName) || match(v.Title) || match(v.UserName)
+		if matched != ui.pg2.inverted {
 			ixs = append(ixs, i)
 		}
 	}
