@@ -94,22 +94,22 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 }
 
 func (ui *UI) getSelectedStreamData() (sc.StreamData, error) {
-	listIdx := ui.pg1.focusedList.GetCurrentItem()
-	primaryText, _ := ui.pg1.focusedList.GetItemText(listIdx)
-	switch ui.pg1.focusedList {
-	case ui.pg1.twitchList:
-		ix := slices.IndexFunc(ui.pg1.streams.Twitch.Data, func(sd sc.TwitchStreamData) bool {
+	listIdx := ui.mainPage.focusedList.GetCurrentItem()
+	primaryText, _ := ui.mainPage.focusedList.GetItemText(listIdx)
+	switch ui.mainPage.focusedList {
+	case ui.mainPage.twitchList:
+		ix := slices.IndexFunc(ui.mainPage.streams.Twitch.Data, func(sd sc.TwitchStreamData) bool {
 			return sd.UserName == primaryText
 		})
 		if ix != -1 {
-			return &ui.pg1.streams.Twitch.Data[ix], nil
+			return &ui.mainPage.streams.Twitch.Data[ix], nil
 		}
-	case ui.pg1.strimsList:
-		ix := slices.IndexFunc(ui.pg1.streams.Strims.Data, func(sd sc.StrimsStreamData) bool {
+	case ui.mainPage.strimsList:
+		ix := slices.IndexFunc(ui.mainPage.streams.Strims.Data, func(sd sc.StrimsStreamData) bool {
 			return sd.Channel == primaryText
 		})
 		if ix != -1 {
-			return &ui.pg1.streams.Strims.Data[ix], nil
+			return &ui.mainPage.streams.Strims.Data[ix], nil
 		}
 	}
 	return nil, errors.New("cannot open empty result")

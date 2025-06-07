@@ -15,17 +15,14 @@ import (
 	"github.com/rivo/tview"
 )
 
-const DefaultTwitchFilter = "(?i)"
-const DefaultRustlerMin = "2"
-
 type UI struct {
-	app   *tview.Application
-	pages *tview.Pages
-	pg1   *MainPage    // "Main Window"
-	pg2   *FilterInput // "Filter-Twitch"
-	pg3   *FilterInput // "Filter-Strims"
-	pg4   *DialogueBox // "Refresh-Dialogue"
-	addr  string
+	app          *tview.Application
+	pages        *tview.Pages
+	mainPage     *MainPage
+	twitchFilter *FilterInput
+	strimsFilter *FilterInput
+	addr         string
+	cmdRegistry  *CommandRegistry
 
 	updateStreamsCh     chan struct{}
 	forceRemoteUpdateCh chan struct{}
@@ -33,8 +30,7 @@ type UI struct {
 }
 
 type FilterInput struct {
-	con      *tview.Grid
-	input    *tview.InputField
+	input    string
 	inverted bool
 }
 
@@ -53,7 +49,10 @@ type MainPage struct {
 	twitchList      *tview.List
 	keybindInfoText *tview.TextView
 	appStatusText   *tview.TextView
-	strimsVisible   bool
+	commandLine     *tview.InputField
+
+	lastSearch    string
+	strimsVisible bool
 }
 
 func (ui *UI) SetAddress(address string) *UI {
@@ -71,7 +70,7 @@ func (ui *UI) updateStreams(ctx context.Context) error {
 	}
 	sort.Sort(sort.Reverse(streams.Twitch))
 	sort.Sort(sort.Reverse(streams.Strims))
-	ui.pg1.streams = streams
+	ui.mainPage.streams = streams
 	return nil
 }
 
@@ -99,7 +98,7 @@ func NewUI() *UI {
 	ui := &UI{
 		app:   tview.NewApplication(),
 		pages: tview.NewPages(),
-		pg1: &MainPage{
+		mainPage: &MainPage{
 			con:             tview.NewFlex(),
 			streamsCon:      tview.NewFlex(),
 			infoCon:         tview.NewFlex(),
@@ -108,24 +107,111 @@ func NewUI() *UI {
 			streamInfo:      tview.NewTextView(),
 			keybindInfoText: tview.NewTextView(),
 			appStatusText:   tview.NewTextView(),
+			commandLine:     tview.NewInputField(),
 			streams:         new(sc.Streams),
 			strimsVisible:   true,
 		},
-		pg2: &FilterInput{
-			con:   tview.NewGrid(),
-			input: tview.NewInputField(),
-		},
-		pg3: &FilterInput{
-			con:   tview.NewGrid(),
-			input: tview.NewInputField(),
-		},
-		pg4: &DialogueBox{
-			modal: tview.NewModal(),
-		},
+		twitchFilter:        &FilterInput{},
+		strimsFilter:        &FilterInput{},
+		cmdRegistry:         NewCommandRegistry(),
 		updateStreamsCh:     make(chan struct{}, 1),
 		forceRemoteUpdateCh: make(chan struct{}, 1),
 	}
-	ui.pg1.focusedList = ui.pg1.twitchList
+	ui.mainPage.focusedList = ui.mainPage.twitchList
+	ui.cmdRegistry.Register(&Command{
+		Name:        "help",
+		Description: "Show help for all commands, or those matching [subject[] if provided",
+		Usage:       "h[elp[] [subject[]",
+		MinArgs:     0,
+		MaxArgs:     1,
+		Execute: func(u *UI, args []string, bang bool) error {
+			var help string
+			switch len(args) {
+			case 0:
+				help = u.cmdRegistry.Help()
+			case 1:
+				query := strings.TrimPrefix(args[0], ":")
+				for cmdName, cmd := range ui.cmdRegistry.commands {
+					if strings.HasPrefix(cmdName, query) {
+						help += fmt.Sprintf(":[red]%s[-] - %s", cmd.Usage, cmd.Description)
+					}
+				}
+			}
+			u.mainPage.streamInfo.SetText(help)
+			return nil
+		},
+	})
+	ui.cmdRegistry.Register(&Command{
+		Name:        "quit",
+		Description: "Quit the app",
+		Usage:       "q[uit[]",
+		MinArgs:     0,
+		MaxArgs:     0,
+		Execute: func(u *UI, args []string, bang bool) error {
+			u.app.Stop()
+			return nil
+		},
+	})
+	ui.cmdRegistry.Register(&Command{
+		Name:        "global",
+		Description: "Filter {cmd=d} or show {cmd=p} lines matching {pattern}",
+		Usage:       "g[lobal[]/{pattern}/{cmd}",
+		MinArgs:     1,
+		MaxArgs:     -1,
+		Execute: func(u *UI, args []string, bang bool) error {
+			return nil
+		},
+		OnType: func(u *UI, args []string) error {
+			return applyFilterFromArg(u, strings.Join(args, " "), false)
+		},
+	})
+	ui.cmdRegistry.Register(&Command{
+		Name:        "vglobal",
+		Description: "Filter {cmd=p} or show {cmd=d} lines matching {pattern}",
+		Usage:       "v[global[]/{pattern}/{cmd}",
+		MinArgs:     1,
+		MaxArgs:     int(^uint(0) >> 1),
+		Execute: func(u *UI, args []string, bang bool) error {
+			return nil
+		},
+		OnType: func(u *UI, args []string) error {
+			return applyFilterFromArg(u, strings.Join(args, " "), true)
+		},
+	})
+	ui.cmdRegistry.Register(&Command{
+		Name:        "sync",
+		Description: "Syncronize streams: client side",
+		Usage:       "s[ync[]",
+		MinArgs:     0,
+		MaxArgs:     0,
+		Execute: func(u *UI, args []string, bang bool) error {
+			select {
+			case u.updateStreamsCh <- struct{}{}:
+			default:
+				u.mainPage.appStatusText.SetText("[red]Skipped fetching streams, try again later...[-]")
+			}
+			return nil
+		},
+	})
+	ui.cmdRegistry.Register(&Command{
+		Name:        "update",
+		Description: "Update streams: server side. Adding ! also syncronizes client streams",
+		Usage:       "u[pdate[][![]",
+		MinArgs:     0,
+		MaxArgs:     0,
+		Execute: func(u *UI, args []string, bang bool) error {
+			select {
+			case u.forceRemoteUpdateCh <- struct{}{}:
+			default:
+				ui.mainPage.appStatusText.SetText("[red]Skipped remote update, try again later...[-]")
+			}
+			if bang {
+				ui.mainPage.commandLine.SetText(":sync")
+				ui.execCommand(tcell.KeyEnter)
+			}
+			return nil
+		},
+	})
 	return ui
 }
 
@@ -135,13 +221,7 @@ func (ui *UI) Run() error {
 
 	ui.pages.SetBackgroundColor(tcell.ColorDefault)
 	ui.setupMainPage()
-	ui.setupFilterTwitchPage()
-	ui.setupFilterStrimsPage()
-	ui.setupRefreshDialoguePage()
-	ui.pages.AddPage("Main Window", ui.pg1.con, true, true)
-	ui.pages.AddPage("Filter-Twitch", ui.pg2.con, true, false)
-	ui.pages.AddPage("Filter-Strims", ui.pg3.con, true, false)
-	ui.pages.AddPage("Refresh-Dialogue", ui.pg4.modal, true, false)
+	ui.pages.AddPage("Main Window", ui.mainPage.con, true, true)
 	ui.app.SetRoot(ui.pages, true)
 
 	// NOTE: These are in-order (LIFO) deferred calls
@@ -163,7 +243,7 @@ func (ui *UI) Run() error {
 func (ui *UI) streamUpdateLoop(ctx context.Context) {
 	setStatus := func(color string, text string) {
 		ui.app.QueueUpdateDraw(func() {
-			ui.pg1.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", color, text))
+			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", color, text))
 		})
 	}
 	defer ui.wg.Done()
@@ -173,9 +253,9 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 	defer timer.Stop()
 
 	for {
-		if !ui.pg1.streams.LastFetched.IsZero() {
+		if !ui.mainPage.streams.LastFetched.IsZero() {
 			var nextUpdate time.Time
-			nextUpdate = ui.pg1.streams.LastFetched.Add(ui.pg1.streams.RefreshInterval)
+			nextUpdate = ui.mainPage.streams.LastFetched.Add(ui.mainPage.streams.RefreshInterval)
 			timer.Reset(time.Until(nextUpdate))
 		}
 		select {
@@ -210,9 +290,9 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		}
 
 		ui.app.QueueUpdate(func() {
-			if ui.pg1.streams.Strims.Len() == 0 {
-				ui.app.SetFocus(ui.pg1.twitchList)
-				ui.pg1.focusedList = ui.pg1.twitchList
+			if ui.mainPage.streams.Strims.Len() == 0 {
+				ui.app.SetFocus(ui.mainPage.twitchList)
+				ui.mainPage.focusedList = ui.mainPage.twitchList
 				ui.disableStrimsList()
 			} else {
 				ui.enableStrimsList()
@@ -222,114 +302,137 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		})
 		setStatus("green", fmt.Sprintf(
 			"Fetched %d Twitch streams and %d Strims streams",
-			ui.pg1.streams.Twitch.Len(),
-			ui.pg1.streams.Strims.Len(),
+			ui.mainPage.streams.Twitch.Len(),
+			ui.mainPage.streams.Strims.Len(),
 		))
 	}
 }
 
 func (ui *UI) setupMainPage() {
-	ui.pg1.con.AddItem(ui.pg1.streamsCon, 0, 1, true)
-	ui.pg1.streamsCon.SetDirection(tview.FlexRow)
-	ui.pg1.con.AddItem(ui.pg1.infoCon, 0, 2, false)
-	ui.pg1.infoCon.SetDirection(tview.FlexRow)
+	ui.mainPage.con.AddItem(ui.mainPage.streamsCon, 0, 1, true)
+	ui.mainPage.con.AddItem(ui.mainPage.infoCon, 0, 2, false)
+	ui.mainPage.streamsCon.SetDirection(tview.FlexRow)
+	ui.mainPage.infoCon.SetDirection(tview.FlexRow)
 	// TwitchList
-	ui.pg1.streamsCon.AddItem(ui.pg1.twitchList, 0, 3, true)
-	ui.pg1.twitchList.SetChangedFunc(ui.updateTwitchStreamInfo)
-	ui.pg1.twitchList.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg1.twitchList.SetBorder(true)
-	ui.pg1.twitchList.SetBorderPadding(0, 0, 1, 1)
-	ui.pg1.twitchList.SetInputCapture(ui.listInputHandler)
-	ui.pg1.twitchList.SetSecondaryTextColor(tcell.ColorDefault)
-	ui.pg1.twitchList.SetTitle("Twitch")
-	ui.pg1.twitchList.SetSelectedFocusOnly(true)
+	ui.mainPage.streamsCon.AddItem(ui.mainPage.twitchList, 0, 3, true)
+	ui.mainPage.twitchList.SetChangedFunc(ui.updateTwitchStreamInfo)
+	ui.mainPage.twitchList.SetBackgroundColor(tcell.ColorDefault)
+	ui.mainPage.twitchList.SetBorder(true)
+	ui.mainPage.twitchList.SetBorderPadding(0, 0, 1, 1)
+	ui.mainPage.twitchList.SetInputCapture(ui.listInputHandler)
+	ui.mainPage.twitchList.SetSecondaryTextColor(tcell.ColorDefault)
+	ui.mainPage.twitchList.SetTitle("Twitch")
+	ui.mainPage.twitchList.SetSelectedFocusOnly(true)
 	// StrimsList
-	ui.pg1.streamsCon.AddItem(ui.pg1.strimsList, 0, 2, false)
-	ui.pg1.strimsList.SetChangedFunc(ui.updateStrimsStreamInfo)
-	ui.pg1.strimsList.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg1.strimsList.SetBorder(true)
-	ui.pg1.strimsList.SetBorderPadding(0, 0, 1, 1)
-	ui.pg1.strimsList.SetInputCapture(ui.listInputHandler)
-	ui.pg1.strimsList.SetSecondaryTextColor(tcell.ColorDefault)
-	ui.pg1.strimsList.SetTitle("Strims")
-	ui.pg1.strimsList.SetSelectedFocusOnly(true)
+	ui.mainPage.streamsCon.AddItem(ui.mainPage.strimsList, 0, 2, false)
+	ui.mainPage.strimsList.SetChangedFunc(ui.updateStrimsStreamInfo)
+	ui.mainPage.strimsList.SetBackgroundColor(tcell.ColorDefault)
+	ui.mainPage.strimsList.SetBorder(true)
+	ui.mainPage.strimsList.SetBorderPadding(0, 0, 1, 1)
+	ui.mainPage.strimsList.SetInputCapture(ui.listInputHandler)
+	ui.mainPage.strimsList.SetSecondaryTextColor(tcell.ColorDefault)
+	ui.mainPage.strimsList.SetTitle("Strims")
+	ui.mainPage.strimsList.SetSelectedFocusOnly(true)
 	// ErrorInfo
-	ui.pg1.infoCon.AddItem(ui.pg1.appStatusText, 3, 0, false)
-	ui.pg1.appStatusText.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg1.appStatusText.SetTitle("Status (" + ui.addr + ")")
-	ui.pg1.appStatusText.SetBorder(true)
-	ui.pg1.appStatusText.SetDynamicColors(true)
-	ui.pg1.appStatusText.SetTextAlign(tview.AlignCenter)
+	ui.mainPage.infoCon.AddItem(ui.mainPage.appStatusText, 3, 0, false)
+	ui.mainPage.appStatusText.SetBackgroundColor(tcell.ColorDefault)
+	ui.mainPage.appStatusText.SetTitle("Status (" + ui.addr + ")")
+	ui.mainPage.appStatusText.SetBorder(true)
+	ui.mainPage.appStatusText.SetDynamicColors(true)
+	ui.mainPage.appStatusText.SetTextAlign(tview.AlignCenter)
 	// StreamInfo
-	ui.pg1.infoCon.AddItem(ui.pg1.streamInfo, 0, 1, true)
-	ui.pg1.streamInfo.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg1.streamInfo.SetBorder(true)
-	ui.pg1.streamInfo.SetInputCapture(ui.streamInfoInputHandler)
-	ui.pg1.streamInfo.SetDynamicColors(true)
-	ui.pg1.streamInfo.SetTitle("Stream Info")
+	ui.mainPage.infoCon.AddItem(ui.mainPage.streamInfo, 0, 1, true)
+	ui.mainPage.streamInfo.SetBackgroundColor(tcell.ColorDefault)
+	ui.mainPage.streamInfo.SetBorder(true)
+	ui.mainPage.streamInfo.SetInputCapture(ui.streamInfoInputHandler)
+	ui.mainPage.streamInfo.SetDynamicColors(true)
+	ui.mainPage.streamInfo.SetTitle("Stream Info")
 	// TextInfo
-	ui.pg1.infoCon.AddItem(ui.pg1.keybindInfoText, 3, 0, false)
-	ui.pg1.keybindInfoText.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg1.keybindInfoText.SetDynamicColors(true)
-	ui.pg1.keybindInfoText.SetDrawFunc(ui.updateMainKeybindInfo)
-
-	ui.pg1.streamInfo.SetFocusFunc(func() {
-		ui.pg1.keybindInfoText.SetDrawFunc(ui.updateInfowinKeybindInfo)
+	ui.mainPage.infoCon.AddItem(ui.mainPage.keybindInfoText, 3, 0, false)
+	ui.mainPage.keybindInfoText.SetBackgroundColor(tcell.ColorDefault)
+	ui.mainPage.keybindInfoText.SetDynamicColors(true)
+	ui.mainPage.keybindInfoText.SetDrawFunc(ui.updateMainKeybindInfo)
+	ui.mainPage.streamInfo.SetFocusFunc(func() {
+		ui.mainPage.keybindInfoText.SetDrawFunc(ui.updateInfowinKeybindInfo)
 	})
-	ui.pg1.streamInfo.SetBlurFunc(func() {
-		ui.pg1.keybindInfoText.SetDrawFunc(ui.updateMainKeybindInfo)
+	ui.mainPage.streamInfo.SetBlurFunc(func() {
+		ui.mainPage.keybindInfoText.SetDrawFunc(ui.updateMainKeybindInfo)
 	})
-}
-
-func (ui *UI) setupRefreshDialoguePage() {
-	ui.pg4.modal.SetBackgroundColor(tcell.ColorDefault)
-	ui.pg4.modal.SetText("Refresh streams?")
-	buttonLabels := []string{"Refresh", "Refresh Server Data", "Cancel"}
-	ui.pg4.modal.AddButtons(buttonLabels)
-	ui.pg4.modal.SetDoneFunc(ui.refreshStreams)
-}
-
-func (ui *UI) refreshStreams(buttonIndex int, buttonLabel string) {
-	if buttonIndex == 0 || buttonIndex == 1 {
-		ui.pg4.modal.SetText("Loading...")
-		ui.app.ForceDraw()
-		if buttonIndex == 1 {
-			select {
-			case ui.forceRemoteUpdateCh <- struct{}{}:
-			default:
-				ui.pg1.appStatusText.SetText("[red]Skipped remote update, try again later...[-]")
-			}
-		}
-		select {
-		case ui.updateStreamsCh <- struct{}{}:
-		default:
-			ui.pg1.appStatusText.SetText("[red]Skipped fetching streams, try again later...[-]")
-		}
-		ui.pg4.modal.SetText("Force refresh of server's streams?")
-	}
-	ui.pages.HidePage("Refresh-Dialogue")
-	ui.app.SetFocus(ui.pg1.focusedList)
+	// CommandLine
+	ui.mainPage.infoCon.AddItem(ui.mainPage.commandLine, 1, 0, true)
+	ui.mainPage.commandLine.SetFieldTextColor(tcell.ColorForestGreen)
+	ui.mainPage.commandLine.SetFieldBackgroundColor(tcell.ColorBlack)
+	ui.mainPage.commandLine.SetChangedFunc(ui.parseCommand)
+	ui.mainPage.commandLine.SetFinishedFunc(ui.execCommand)
 }
 
 func (ui *UI) updateMainKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
-	ui.pg1.keybindInfoText.Clear()
+	ui.mainPage.keybindInfoText.Clear()
 	if w >= 90 {
-		ui.pg1.keybindInfoText.Write([]byte(SHORTCUT_MAINWIN_HELP))
-		if !ui.pg1.streams.LastFetched.IsZero() {
-			ui.pg1.keybindInfoText.Write([]byte(strings.Repeat(" ", 25)))
-			ui.pg1.keybindInfoText.Write([]byte(ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp)))
+		ui.mainPage.keybindInfoText.Write([]byte(SHORTCUT_MAINWIN_HELP))
+		if !ui.mainPage.streams.LastFetched.IsZero() {
+			ui.mainPage.keybindInfoText.Write([]byte(strings.Repeat(" ", 25)))
+			ui.mainPage.keybindInfoText.Write([]byte(ui.mainPage.streams.LastFetched.In(time.Local).Format(time.Stamp)))
 		}
 	}
 	return x, y, w, h
 }
 
 func (ui *UI) updateInfowinKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
-	ui.pg1.keybindInfoText.Clear()
+	ui.mainPage.keybindInfoText.Clear()
 	if w >= 15 {
-		ui.pg1.keybindInfoText.Write([]byte(SHORTCUT_INFOWIN_HELP))
-		if !ui.pg1.streams.LastFetched.IsZero() {
-			ui.pg1.keybindInfoText.Write([]byte(ui.pg1.streams.LastFetched.In(time.Local).Format(time.Stamp)))
+		ui.mainPage.keybindInfoText.Write([]byte(SHORTCUT_INFOWIN_HELP))
+		if !ui.mainPage.streams.LastFetched.IsZero() {
+			ui.mainPage.keybindInfoText.Write([]byte(ui.mainPage.streams.LastFetched.In(time.Local).Format(time.Stamp)))
 		}
 	}
 	return x, y, w, h
+}
+
+func (ui *UI) updateCmdlineKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
+	ui.mainPage.keybindInfoText.Clear()
+	if w >= 15 {
+		ui.mainPage.keybindInfoText.Write([]byte("hi"))
+	}
+	return x, y, w, h
+}
+
+func (ui *UI) searchNext() {
+	list := ui.mainPage.focusedList
+	count := list.GetItemCount()
+	if count == 0 || ui.mainPage.lastSearch == "" {
+		return
+	}
+	current := list.GetCurrentItem()
+	ui.mainPage.commandLine.SetText("/" + ui.mainPage.lastSearch)
+
+	for i := 1; i <= count; i++ {
+		index := (current + i) % count
+		mainText, _ := list.GetItemText(index)
+		if strings.Contains(strings.ToLower(mainText), strings.ToLower(ui.mainPage.lastSearch)) {
+			list.SetCurrentItem(index)
+			return
+		}
+	}
+	ui.mainPage.appStatusText.SetText(fmt.Sprintf("[yellow]No match for %q[-]", ui.mainPage.lastSearch))
+}
+
+func (ui *UI) searchPrev() {
+	list := ui.mainPage.focusedList
+	count := list.GetItemCount()
+	if count == 0 || ui.mainPage.lastSearch == "" {
+		return
+	}
+	current := list.GetCurrentItem()
+	ui.mainPage.commandLine.SetText("?" + ui.mainPage.lastSearch)
+
+	for i := 1; i <= count; i++ {
+		index := (current - i + count) % count
+		mainText, _ := list.GetItemText(index)
+		if strings.Contains(strings.ToLower(mainText), strings.ToLower(ui.mainPage.lastSearch)) {
+			list.SetCurrentItem(index)
+			return
+		}
+	}
+	ui.mainPage.appStatusText.SetText(fmt.Sprintf("[yellow]No match for %q[-]", ui.mainPage.lastSearch))
 }

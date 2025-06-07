@@ -28,8 +28,9 @@ var SHORTCUT_MAINWIN_HELP = strings.Join(
 		"[red::u]i[-::-]Info",
 		"[red::u]f[-::-]OpenFilter",
 		"[red::u]F[-::-]ClearFilter",
-		"[red::u]n[-::-]ToggleStrims",
-		"[red::u]r[-::-]Refresh",
+		"[red::u]r[-::-]Sync",
+		"[red::u]R[-::-]Update",
+		"[red::u]t[-::-]ToggleStrims",
 		"[red::u]q[-::-]Quit",
 		"\n",
 		"Open [red]{l|→|↵|^j}[-]Embed",
@@ -56,8 +57,8 @@ func (ui *UI) streamInfoInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	case tcell.KeyRune:
 		switch event.Rune() {
 		case 'i', 'q':
-			ui.pg1.con.ResizeItem(ui.pg1.streamsCon, 0, 1)
-			ui.app.SetFocus(ui.pg1.focusedList)
+			ui.mainPage.con.ResizeItem(ui.mainPage.streamsCon, 0, 1)
+			ui.app.SetFocus(ui.mainPage.focusedList)
 			return nil
 			// case 'u':
 			// 	data, err := ui.getSelectedStreamData()
@@ -75,92 +76,106 @@ func (ui *UI) streamInfoInputHandler(event *tcell.EventKey) *tcell.EventKey {
 func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	handleFinish := func(err error) {
 		if err != nil {
-			ui.pg1.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
+			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
 			return
 		}
 		ui.app.Stop()
 	}
 	var ok bool
-	ui.pg1.focusedList, ok = ui.app.GetFocus().(*tview.List)
+	ui.mainPage.focusedList, ok = ui.app.GetFocus().(*tview.List)
 	if !ok {
 		return event
 	}
-	listCnt := ui.pg1.focusedList.GetItemCount()
-	listIdx := ui.pg1.focusedList.GetCurrentItem()
+	listCnt := ui.mainPage.focusedList.GetItemCount()
+	listIdx := ui.mainPage.focusedList.GetCurrentItem()
 	switch event.Key() {
 	case tcell.KeyRune:
 		switch event.Rune() {
 		case 'c':
 			handleFinish(ui.openSelectedStream(lnkOpenChat))
 			return nil
-		case 'g':
-			ui.pg1.focusedList.SetCurrentItem(0)
-			return nil
-		case 'G':
-			ui.pg1.focusedList.SetCurrentItem(listCnt - 1)
-			return nil
-		case 'M':
-			offset, _ := ui.pg1.focusedList.GetOffset()
-			_, _, _, height := ui.pg1.focusedList.GetRect()
-			midView := offset + (height / 4) - 1
-			midItem := offset + (listCnt-1)/2
-			if midItem < midView {
-				ui.pg1.focusedList.SetCurrentItem(midItem)
+		case 'f':
+			var curFilter *FilterInput
+			switch ui.mainPage.focusedList {
+			case ui.mainPage.twitchList:
+				curFilter = ui.twitchFilter
+			case ui.mainPage.strimsList:
+				curFilter = ui.strimsFilter
+			}
+			var repeatType rune
+			if curFilter.inverted {
+				repeatType = 'g'
 			} else {
-				ui.pg1.focusedList.SetCurrentItem(midView)
+				repeatType = 'v'
+			}
+			ui.mainPage.commandLine.SetText(fmt.Sprintf(":%c/%s/d", repeatType, curFilter.input))
+			ui.mainPage.commandLine.InputHandler()(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone), nil)
+			ui.mainPage.commandLine.InputHandler()(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone), nil)
+			ui.app.SetFocus(ui.mainPage.commandLine)
+			return nil
+		case 'F':
+			switch ui.mainPage.focusedList {
+			case ui.mainPage.twitchList:
+				ui.twitchFilter.inverted = false
+				ui.twitchFilter.input = ""
+				ui.updateTwitchList(ui.twitchFilter.input)
+			case ui.mainPage.strimsList:
+				ui.strimsFilter.inverted = false
+				ui.strimsFilter.input = ""
+				ui.updateStrimsList(ui.strimsFilter.input)
 			}
 			return nil
+		case 'G':
+			ui.mainPage.focusedList.SetCurrentItem(listCnt - 1)
+			return nil
+		case 'g':
+			ui.mainPage.focusedList.SetCurrentItem(0)
+			return nil
 		case 'i':
-			ui.pg1.con.ResizeItem(ui.pg1.streamsCon, 0, 0)
-			ui.app.SetFocus(ui.pg1.streamInfo)
+			ui.mainPage.con.ResizeItem(ui.mainPage.streamsCon, 0, 0)
+			ui.app.SetFocus(ui.mainPage.streamInfo)
 			return nil
 		case 'j':
 			if listIdx != listCnt-1 {
-				ui.pg1.focusedList.SetCurrentItem(listIdx + 1)
+				ui.mainPage.focusedList.SetCurrentItem(listIdx + 1)
 			}
 			return nil
 		case 'k':
 			if listIdx != 0 {
-				ui.pg1.focusedList.SetCurrentItem(listIdx - 1)
-			}
-			return nil
-		case 'n':
-			ui.toggleStrimsList()
-			ui.app.SetFocus(ui.pg1.twitchList)
-			ui.refreshTwitchList()
-			return nil
-		case 'f':
-			switch ui.pg1.focusedList {
-			case ui.pg1.twitchList:
-				ui.pages.ShowPage("Filter-Twitch")
-			case ui.pg1.strimsList:
-				ui.pages.ShowPage("Filter-Strims")
-			}
-			return nil
-		case 'F':
-			switch ui.pg1.focusedList {
-			case ui.pg1.twitchList:
-				ui.pg2.input.SetText(DefaultTwitchFilter)
-			case ui.pg1.strimsList:
-				ui.pg3.input.SetText(DefaultRustlerMin)
+				ui.mainPage.focusedList.SetCurrentItem(listIdx - 1)
 			}
 			return nil
 		case 'l':
 			handleFinish(ui.openSelectedStream(lnkOpenEmbed))
 			return nil
+		case 'M':
+			offset, _ := ui.mainPage.focusedList.GetOffset()
+			_, _, _, height := ui.mainPage.focusedList.GetRect()
+			midView := offset + (height / 4) - 1
+			midItem := offset + (listCnt-1)/2
+			if midItem < midView {
+				ui.mainPage.focusedList.SetCurrentItem(midItem)
+			} else {
+				ui.mainPage.focusedList.SetCurrentItem(midView)
+			}
+			return nil
 		case 'm':
 			handleFinish(ui.openSelectedStream(lnkOpenMpv))
 			return nil
+		case 'N':
+			ui.searchPrev()
+		case 'n':
+			ui.searchNext()
 		case 'o':
 			ui.enableStrimsList()
-			switch ui.pg1.focusedList {
-			case ui.pg1.twitchList:
-				ui.app.SetFocus(ui.pg1.strimsList)
-				ui.pg1.focusedList = ui.pg1.strimsList
+			switch ui.mainPage.focusedList {
+			case ui.mainPage.twitchList:
+				ui.app.SetFocus(ui.mainPage.strimsList)
+				ui.mainPage.focusedList = ui.mainPage.strimsList
 				ui.refreshStrimsList()
-			case ui.pg1.strimsList:
-				ui.app.SetFocus(ui.pg1.twitchList)
-				ui.pg1.focusedList = ui.pg1.twitchList
+			case ui.mainPage.strimsList:
+				ui.app.SetFocus(ui.mainPage.twitchList)
+				ui.mainPage.focusedList = ui.mainPage.twitchList
 				ui.refreshTwitchList()
 			}
 			return nil
@@ -168,100 +183,126 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			ui.app.Stop()
 			return nil
 		case 'r':
-			ui.pages.ShowPage("Refresh-Dialogue")
+			ui.mainPage.commandLine.SetText(":sync")
+			ui.app.SetFocus(ui.mainPage.commandLine)
 			return nil
 		case 'R':
-			ui.refreshStreams(0, "Refresh")
+			ui.mainPage.commandLine.SetText(":update!")
+			ui.app.SetFocus(ui.mainPage.commandLine)
 			return nil
 		case 's':
 			handleFinish(ui.openSelectedStream(lnkOpenStrims))
+			return nil
+		case 't':
+			ui.toggleStrimsList()
+			ui.app.SetFocus(ui.mainPage.twitchList)
+			ui.refreshTwitchList()
 			return nil
 		case 'w':
 			handleFinish(ui.openSelectedStream(lnkOpenHomePage))
 			return nil
 		case 'z':
-			rOff, cOff := ui.pg1.focusedList.GetOffset()
-			_, _, _, height := ui.pg1.focusedList.GetRect()
+			rOff, cOff := ui.mainPage.focusedList.GetOffset()
+			_, _, _, height := ui.mainPage.focusedList.GetRect()
 			delta := (listIdx - rOff) - (height / 4)
-			ui.pg1.focusedList.SetOffset(rOff+delta, cOff)
+			ui.mainPage.focusedList.SetOffset(rOff+delta, cOff)
 		case '!':
-			if ui.pg2.inverted {
-				ui.pg2.input.SetTitle("Filter(Regex)")
-				ui.pg2.inverted = false
-			} else {
-				ui.pg2.input.SetTitle("Filter(Regex(inverted))")
-				ui.pg2.inverted = true
+			switch ui.mainPage.focusedList {
+			case ui.mainPage.twitchList:
+				if ui.twitchFilter.inverted {
+					ui.mainPage.commandLine.SetText(":v/" + ui.twitchFilter.input + "/d")
+					ui.twitchFilter.inverted = false
+				} else {
+					ui.mainPage.commandLine.SetText(":g/" + ui.twitchFilter.input + "/d")
+					ui.twitchFilter.inverted = true
+				}
+			case ui.mainPage.strimsList:
+				if ui.strimsFilter.inverted {
+					ui.mainPage.commandLine.SetText(":v/" + ui.strimsFilter.input + "/d")
+					ui.strimsFilter.inverted = false
+				} else {
+					ui.mainPage.commandLine.SetText(":g/" + ui.strimsFilter.input + "/d")
+					ui.strimsFilter.inverted = true
+				}
 			}
-			ui.refreshTwitchList()
+		case '/':
+			ui.mainPage.commandLine.SetText("/")
+			ui.app.SetFocus(ui.mainPage.commandLine)
+		case '?':
+			ui.mainPage.commandLine.SetText("?")
+			ui.app.SetFocus(ui.mainPage.commandLine)
+		case ':':
+			ui.mainPage.commandLine.SetText(":")
+			ui.app.SetFocus(ui.mainPage.commandLine)
 		}
 	case tcell.KeyLeft:
 		return nil
 	case tcell.KeyCtrlE:
-		rOff, cOff := ui.pg1.focusedList.GetOffset()
+		rOff, cOff := ui.mainPage.focusedList.GetOffset()
 		if listIdx == rOff {
-			ui.pg1.focusedList.SetCurrentItem(listIdx + 1)
+			ui.mainPage.focusedList.SetCurrentItem(listIdx + 1)
 		}
-		ui.pg1.focusedList.SetOffset(rOff+1, cOff)
+		ui.mainPage.focusedList.SetOffset(rOff+1, cOff)
 		return nil
 	case tcell.KeyCtrlY:
-		rOff, cOff := ui.pg1.focusedList.GetOffset()
-		_, _, _, height := ui.pg1.focusedList.GetInnerRect()
+		rOff, cOff := ui.mainPage.focusedList.GetOffset()
+		_, _, _, height := ui.mainPage.focusedList.GetInnerRect()
 		if rOff > 0 {
 			if listIdx-rOff == (height/2)-1 {
-				ui.pg1.focusedList.SetCurrentItem(listIdx - 1)
+				ui.mainPage.focusedList.SetCurrentItem(listIdx - 1)
 			}
-			ui.pg1.focusedList.SetOffset(rOff-1, cOff)
+			ui.mainPage.focusedList.SetOffset(rOff-1, cOff)
 		}
 		return nil
 	case tcell.KeyCtrlW:
 		ui.enableStrimsList()
-		switch ui.pg1.focusedList {
-		case ui.pg1.twitchList:
-			ui.app.SetFocus(ui.pg1.strimsList)
-			ui.pg1.focusedList = ui.pg1.strimsList
+		switch ui.mainPage.focusedList {
+		case ui.mainPage.twitchList:
+			ui.app.SetFocus(ui.mainPage.strimsList)
+			ui.mainPage.focusedList = ui.mainPage.strimsList
 			ui.refreshStrimsList()
-		case ui.pg1.strimsList:
-			ui.app.SetFocus(ui.pg1.twitchList)
-			ui.pg1.focusedList = ui.pg1.twitchList
+		case ui.mainPage.strimsList:
+			ui.app.SetFocus(ui.mainPage.twitchList)
+			ui.mainPage.focusedList = ui.mainPage.twitchList
 			ui.refreshTwitchList()
 		}
 		return nil
 	case tcell.KeyCtrlU:
-		_, _, _, height := ui.pg1.focusedList.GetRect()
+		_, _, _, height := ui.mainPage.focusedList.GetRect()
 		jumpoff := (height / 4) - 1
 		if listIdx <= jumpoff {
-			ui.pg1.focusedList.SetCurrentItem(0)
+			ui.mainPage.focusedList.SetCurrentItem(0)
 		} else {
-			ui.pg1.focusedList.SetCurrentItem(listIdx - jumpoff)
+			ui.mainPage.focusedList.SetCurrentItem(listIdx - jumpoff)
 		}
 	case tcell.KeyCtrlD:
-		_, _, _, height := ui.pg1.focusedList.GetRect()
+		_, _, _, height := ui.mainPage.focusedList.GetRect()
 		jumpoff := (height / 4) - 1
 		if listIdx >= listCnt-jumpoff {
-			ui.pg1.focusedList.SetCurrentItem(listCnt)
+			ui.mainPage.focusedList.SetCurrentItem(listCnt)
 		} else {
-			ui.pg1.focusedList.SetCurrentItem(listIdx + jumpoff)
+			ui.mainPage.focusedList.SetCurrentItem(listIdx + jumpoff)
 		}
 	case tcell.KeyEnter, tcell.KeyRight, tcell.KeyCtrlJ:
 		handleFinish(ui.openSelectedStream(lnkOpenEmbed))
 		return nil
 	case tcell.KeyDown, tcell.KeyCtrlN:
 		if listIdx != listCnt-1 {
-			ui.pg1.focusedList.SetCurrentItem(listIdx + 1)
+			ui.mainPage.focusedList.SetCurrentItem(listIdx + 1)
 		}
 		return nil
 	case tcell.KeyUp, tcell.KeyCtrlP:
 		if listIdx != 0 {
-			ui.pg1.focusedList.SetCurrentItem(listIdx - 1)
+			ui.mainPage.focusedList.SetCurrentItem(listIdx - 1)
 		}
 		return nil
 	case tcell.KeyCtrlH:
-		rOff, cOff := ui.pg1.focusedList.GetOffset()
-		ui.pg1.focusedList.SetOffset(rOff, cOff-1)
+		rOff, cOff := ui.mainPage.focusedList.GetOffset()
+		ui.mainPage.focusedList.SetOffset(rOff, cOff-1)
 		return nil
 	case tcell.KeyCtrlL:
-		rOff, cOff := ui.pg1.focusedList.GetOffset()
-		ui.pg1.focusedList.SetOffset(rOff, cOff+1)
+		rOff, cOff := ui.mainPage.focusedList.GetOffset()
+		ui.mainPage.focusedList.SetOffset(rOff, cOff+1)
 		return nil
 	}
 	// Let the default list primitive key event handler handle the rest
