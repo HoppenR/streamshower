@@ -138,6 +138,7 @@ func NewUI() *UI {
 				}
 			}
 			u.mainPage.streamInfo.SetText(help)
+			u.mainPage.streamInfo.SetTitle("HELP")
 			return nil
 		},
 	})
@@ -154,7 +155,7 @@ func NewUI() *UI {
 	})
 	ui.cmdRegistry.Register(&Command{
 		Name:        "global",
-		Description: "Filter {cmd=d} or show {cmd=p} lines matching {pattern}. ! filters both windows",
+		Description: "Filter {cmd=d|p} lines matching {pattern}, ! filters all lists",
 		Usage:       "g[lobal[][!]]/{pattern}/{cmd}",
 		MinArgs:     1,
 		MaxArgs:     -1,
@@ -167,7 +168,7 @@ func NewUI() *UI {
 	})
 	ui.cmdRegistry.Register(&Command{
 		Name:        "vglobal",
-		Description: "Filter {cmd=p} or show {cmd=d} lines matching {pattern}. ! filters both windows",
+		Description: "Filter {cmd=d|p} lines NOT matching {pattern}, ! filters all lists",
 		Usage:       "v[global[][!]]/{pattern}/{cmd}",
 		MinArgs:     1,
 		MaxArgs:     int(^uint(0) >> 1),
@@ -385,14 +386,6 @@ func (ui *UI) updateInfowinKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int
 		if !ui.mainPage.streams.LastFetched.IsZero() {
 			ui.mainPage.keybindInfoText.Write([]byte(ui.mainPage.streams.LastFetched.In(time.Local).Format(time.Stamp)))
 		}
-	}
-	return x, y, w, h
-}
-
-func (ui *UI) updateCmdlineKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
-	ui.mainPage.keybindInfoText.Clear()
-	if w >= 15 {
-		ui.mainPage.keybindInfoText.Write([]byte("hi"))
 	}
 	return x, y, w, h
 }
