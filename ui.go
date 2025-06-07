@@ -275,7 +275,7 @@ func (ui *UI) setupMainPage() {
 			ui.execCommand(text)
 			return true
 		} else if source == tview.AutocompletedTab {
-			ui.mainPage.commandLine.SetText(text + " ")
+			ui.mainPage.commandLine.SetText(text)
 			return false
 		}
 		return false
@@ -294,7 +294,12 @@ func (ui *UI) setupMainPage() {
 			}
 			return entries
 		case 2:
-			possibleCmds := ui.cmdRegistry.matchPossibleCommands(strings.TrimLeft(fields[0], ":"))
+			cmd := strings.TrimPrefix(fields[0], ":")
+			namepart, _, _ := parseCommandParts(cmd)
+			if namepart == "" {
+				return nil
+			}
+			possibleCmds := ui.cmdRegistry.matchPossibleCommands(namepart)
 			if len(possibleCmds) == 1 {
 				if possibleCmds[0].Complete != nil {
 					return possibleCmds[0].Complete(ui, fields[1])
