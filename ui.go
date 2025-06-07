@@ -154,28 +154,28 @@ func NewUI() *UI {
 	})
 	ui.cmdRegistry.Register(&Command{
 		Name:        "global",
-		Description: "Filter {cmd=d} or show {cmd=p} lines matching {pattern}",
-		Usage:       "g[lobal[]/{pattern}/{cmd}",
+		Description: "Filter {cmd=d} or show {cmd=p} lines matching {pattern}. ! filters both windows",
+		Usage:       "g[lobal[][!]]/{pattern}/{cmd}",
 		MinArgs:     1,
 		MaxArgs:     -1,
 		Execute: func(u *UI, args []string, bang bool) error {
 			return nil
 		},
-		OnType: func(u *UI, args []string) error {
-			return applyFilterFromArg(u, strings.Join(args, " "), false)
+		OnType: func(u *UI, args []string, bang bool) error {
+			return applyFilterFromArg(u, strings.Join(args, " "), bang, false)
 		},
 	})
 	ui.cmdRegistry.Register(&Command{
 		Name:        "vglobal",
-		Description: "Filter {cmd=p} or show {cmd=d} lines matching {pattern}",
-		Usage:       "v[global[]/{pattern}/{cmd}",
+		Description: "Filter {cmd=p} or show {cmd=d} lines matching {pattern}. ! filters both windows",
+		Usage:       "v[global[][!]]/{pattern}/{cmd}",
 		MinArgs:     1,
 		MaxArgs:     int(^uint(0) >> 1),
 		Execute: func(u *UI, args []string, bang bool) error {
 			return nil
 		},
-		OnType: func(u *UI, args []string) error {
-			return applyFilterFromArg(u, strings.Join(args, " "), true)
+		OnType: func(u *UI, args []string, bang bool) error {
+			return applyFilterFromArg(u, strings.Join(args, " "), bang, true)
 		},
 	})
 	ui.cmdRegistry.Register(&Command{
@@ -282,7 +282,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		if errors.Is(err, context.Canceled) {
 			return
 		} else if errors.Is(err, sc.ErrAuthPending) {
-			setStatus("yellow", "press R to refresh after authenticating")
+			setStatus("yellow", "run `:sync` to refresh after authenticating")
 			continue
 		} else if err != nil {
 			setStatus("red", fmt.Sprintf("Error fetching: %s", err))
