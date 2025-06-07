@@ -118,109 +118,6 @@ func NewUI() *UI {
 		forceRemoteUpdateCh: make(chan struct{}, 1),
 	}
 	ui.mainPage.focusedList = ui.mainPage.twitchList
-	ui.cmdRegistry.Register(&Command{
-		Name:        "help",
-		Description: "Show help for all commands, or those matching [subject[] if provided",
-		Usage:       "h[elp[] [subject[]",
-		MinArgs:     0,
-		MaxArgs:     1,
-		Complete: func(u *UI, s string) []string {
-			possibleCmds := ui.cmdRegistry.matchPossibleCommands(s)
-			entries := make([]string, 0, len(possibleCmds))
-			for _, cmd := range possibleCmds {
-				entries = append(entries, ":help "+cmd.Name)
-			}
-			return entries
-		},
-		Execute: func(u *UI, args []string, bang bool) error {
-			var help string
-			switch len(args) {
-			case 0:
-				help = u.cmdRegistry.Help()
-			case 1:
-				query := strings.TrimPrefix(args[0], ":")
-				for cmdName, cmd := range ui.cmdRegistry.commands {
-					if strings.HasPrefix(cmdName, query) {
-						help += fmt.Sprintf(":[red]%s[-] - %s", cmd.Usage, cmd.Description)
-					}
-				}
-			}
-			u.mainPage.streamInfo.SetText(help)
-			u.mainPage.streamInfo.SetTitle("HELP")
-			return nil
-		},
-	})
-	ui.cmdRegistry.Register(&Command{
-		Name:        "quit",
-		Description: "Quit the app",
-		Usage:       "q[uit[]",
-		MinArgs:     0,
-		MaxArgs:     0,
-		Execute: func(u *UI, args []string, bang bool) error {
-			u.app.Stop()
-			return nil
-		},
-	})
-	ui.cmdRegistry.Register(&Command{
-		Name:        "global",
-		Description: "Filter {cmd=d|p} lines matching {pattern}, ! filters all lists",
-		Usage:       "g[lobal[][!]]/{pattern}/{cmd}",
-		MinArgs:     1,
-		MaxArgs:     -1,
-		Execute: func(u *UI, args []string, bang bool) error {
-			return nil
-		},
-		OnType: func(u *UI, args []string, bang bool) error {
-			return applyFilterFromArg(u, strings.Join(args, " "), bang, false)
-		},
-	})
-	ui.cmdRegistry.Register(&Command{
-		Name:        "vglobal",
-		Description: "Filter {cmd=d|p} lines NOT matching {pattern}, ! filters all lists",
-		Usage:       "v[global[][!]]/{pattern}/{cmd}",
-		MinArgs:     1,
-		MaxArgs:     int(^uint(0) >> 1),
-		Execute: func(u *UI, args []string, bang bool) error {
-			return nil
-		},
-		OnType: func(u *UI, args []string, bang bool) error {
-			return applyFilterFromArg(u, strings.Join(args, " "), bang, true)
-		},
-	})
-	ui.cmdRegistry.Register(&Command{
-		Name:        "sync",
-		Description: "Syncronize streams: client side",
-		Usage:       "s[ync[]",
-		MinArgs:     0,
-		MaxArgs:     0,
-		Execute: func(u *UI, args []string, bang bool) error {
-			select {
-			case u.updateStreamsCh <- struct{}{}:
-			default:
-				u.mainPage.appStatusText.SetText("[red]Skipped fetching streams, try again later...[-]")
-			}
-			return nil
-		},
-	})
-	ui.cmdRegistry.Register(&Command{
-		Name:        "update",
-		Description: "Update streams: server side. Adding ! also syncronizes client streams",
-		Usage:       "u[pdate[][![]",
-		MinArgs:     0,
-		MaxArgs:     0,
-		Execute: func(u *UI, args []string, bang bool) error {
-			select {
-			case u.forceRemoteUpdateCh <- struct{}{}:
-			default:
-				ui.mainPage.appStatusText.SetText("[red]Skipped remote update, try again later...[-]")
-			}
-			if bang {
-				ui.mainPage.commandLine.SetText(":sync")
-				ui.execCommand(tcell.KeyEnter)
-			}
-			return nil
-		},
-	})
 	return ui
 }
 
@@ -371,15 +268,15 @@ func (ui *UI) setupMainPage() {
 	ui.mainPage.infoCon.AddItem(ui.mainPage.commandLine, 1, 0, true)
 	ui.mainPage.commandLine.SetFieldTextColor(tcell.ColorForestGreen)
 	ui.mainPage.commandLine.SetFieldBackgroundColor(tcell.ColorBlack)
-	ui.mainPage.commandLine.SetChangedFunc(ui.parseCommand)
-	ui.mainPage.commandLine.SetFinishedFunc(ui.execCommand)
+	ui.mainPage.commandLine.SetChangedFunc(ui.parseCommandChain)
+	ui.mainPage.commandLine.SetFinishedFunc(ui.execCommandChainCallback)
 	ui.mainPage.commandLine.SetAutocompletedFunc(func(text string, index int, source int) bool {
-		if source != tview.AutocompletedNavigate {
-			ui.mainPage.commandLine.SetText(text)
-			if source == tview.AutocompletedEnter {
-				ui.execCommand(tcell.KeyEnter)
-				return true
-			}
+		if source == tview.AutocompletedEnter {
+			ui.execCommand(text)
+			return true
+		} else if source == tview.AutocompletedTab {
+			ui.mainPage.commandLine.SetText(text + " ")
+			return false
 		}
 		return false
 	})
@@ -429,44 +326,4 @@ func (ui *UI) updateInfowinKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int
 		}
 	}
 	return x, y, w, h
-}
-
-func (ui *UI) searchNext() {
-	list := ui.mainPage.focusedList
-	count := list.GetItemCount()
-	if count == 0 || ui.mainPage.lastSearch == "" {
-		return
-	}
-	current := list.GetCurrentItem()
-	ui.mainPage.commandLine.SetText("/" + ui.mainPage.lastSearch)
-
-	for i := 1; i <= count; i++ {
-		index := (current + i) % count
-		mainText, _ := list.GetItemText(index)
-		if strings.Contains(strings.ToLower(mainText), strings.ToLower(ui.mainPage.lastSearch)) {
-			list.SetCurrentItem(index)
-			return
-		}
-	}
-	ui.mainPage.appStatusText.SetText(fmt.Sprintf("[yellow]No match for %q[-]", ui.mainPage.lastSearch))
-}
-
-func (ui *UI) searchPrev() {
-	list := ui.mainPage.focusedList
-	count := list.GetItemCount()
-	if count == 0 || ui.mainPage.lastSearch == "" {
-		return
-	}
-	current := list.GetCurrentItem()
-	ui.mainPage.commandLine.SetText("?" + ui.mainPage.lastSearch)
-
-	for i := 1; i <= count; i++ {
-		index := (current - i + count) % count
-		mainText, _ := list.GetItemText(index)
-		if strings.Contains(strings.ToLower(mainText), strings.ToLower(ui.mainPage.lastSearch)) {
-			list.SetCurrentItem(index)
-			return
-		}
-	}
-	ui.mainPage.appStatusText.SetText(fmt.Sprintf("[yellow]No match for %q[-]", ui.mainPage.lastSearch))
 }

@@ -50,13 +50,6 @@ func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
 		ui.mainPage.streamInfo.Write([]byte(c))
 	}
 
-	// {
-	// 	// NOTE: Make sure that all multibyte characters are cleared, by
-	// 	// adding text before clearing
-	// 	ui.mainPage.streamInfo.SetText(strings.Repeat("#", 500))
-	// 	ui.app.ForceDraw()
-	// }
-
 	ui.mainPage.streamInfo.Clear()
 	if index == -1 {
 		ui.mainPage.streamInfo.SetTitle("Stream Info")
