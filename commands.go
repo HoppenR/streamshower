@@ -16,7 +16,7 @@ type Command struct {
 	Description string
 	Usage       string
 	Execute     func(*UI, []string, bool) error
-	OnType      func(*UI, []string) error
+	OnType      func(*UI, []string, bool) error
 
 	MinArgs int
 	MaxArgs int
@@ -53,13 +53,13 @@ func (ui *UI) parseCommand(cmdLine string) {
 
 	if strings.HasPrefix(cmdLine, ":") {
 		cmdLine = strings.TrimPrefix(cmdLine, ":")
-		name, args, _ := parseCommandParts(cmdLine)
+		name, args, bang := parseCommandParts(cmdLine)
 		if name == "" {
 			return
 		}
 		possible := ui.cmdRegistry.matchPossibleCommands(name)
 		if len(possible) == 1 && possible[0].OnType != nil {
-			err := possible[0].OnType(ui, args)
+			err := possible[0].OnType(ui, args, bang)
 			if err != nil {
 				ui.mainPage.appStatusText.SetText(err.Error())
 			}
@@ -123,7 +123,7 @@ func extractCmdName(text string) (name string, rest string) {
 	return text, ""
 }
 
-func applyFilterFromArg(u *UI, arg string, invertMatching bool) error {
+func applyFilterFromArg(u *UI, arg string, bang bool, invertMatching bool) error {
 	re, err := regexp.Compile(`^\/([^\/]+)\/([dp])$`)
 	if err != nil {
 		return err
@@ -135,21 +135,26 @@ func applyFilterFromArg(u *UI, arg string, invertMatching bool) error {
 	cmdArgument := matches[1]
 	exCmd := rune(matches[2][0])
 
-	var filter *FilterInput
-	switch u.mainPage.focusedList {
-	case u.mainPage.twitchList:
-		filter = u.twitchFilter
-	case u.mainPage.strimsList:
-		filter = u.strimsFilter
-	}
-
-	if invertMatching {
-		filter.inverted = (exCmd == 'p')
+	var filters []*FilterInput
+	if bang {
+		filters = []*FilterInput{u.twitchFilter, u.strimsFilter}
 	} else {
-		filter.inverted = (exCmd == 'd')
+		switch u.mainPage.focusedList {
+		case u.mainPage.twitchList:
+			filters = []*FilterInput{u.twitchFilter}
+		case u.mainPage.strimsList:
+			filters = []*FilterInput{u.strimsFilter}
+		}
+	}
+	for _, f := range filters {
+		if invertMatching {
+			f.inverted = (exCmd == 'p')
+		} else {
+			f.inverted = (exCmd == 'd')
+		}
+		f.input = cmdArgument
 	}
 
-	filter.input = cmdArgument
 	u.refreshTwitchList()
 	u.refreshStrimsList()
 	return nil

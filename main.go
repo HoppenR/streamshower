@@ -108,6 +108,7 @@ func main() {
 		srv.SetInterval(*refreshTime)
 		srv.SetRedirect(*redirect)
 		srv.SetLogger(logger)
+		srv.EnableStrims(true)
 		err = srv.Run()
 		if err != nil {
 			logger.Error("server exited abnormally", "err", err)
