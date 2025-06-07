@@ -17,6 +17,7 @@ type Command struct {
 	Usage       string
 	Execute     func(*UI, []string, bool) error
 	OnType      func(*UI, []string, bool) error
+	Complete    func(*UI, string) []string
 
 	MinArgs int
 	MaxArgs int
@@ -74,6 +75,9 @@ func (ui *UI) parseCommand(cmdLine string) {
 func (ui *UI) execCommand(key tcell.Key) {
 	ui.app.SetFocus(ui.mainPage.focusedList)
 	cmdLine := strings.TrimSpace(ui.mainPage.commandLine.GetText())
+	if key != tcell.KeyEnter {
+		return
+	}
 	if cmdLine == "" {
 		return
 	}
@@ -124,7 +128,7 @@ func extractCmdName(text string) (name string, rest string) {
 }
 
 func applyFilterFromArg(u *UI, arg string, bang bool, invertMatching bool) error {
-	re, err := regexp.Compile(`^\/([^\/]+)\/([dp])$`)
+	re, err := regexp.Compile(`^\/([^\/]*)\/([dp])$`)
 	if err != nil {
 		return err
 	}

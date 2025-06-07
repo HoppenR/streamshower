@@ -93,7 +93,6 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Rune() {
 		case 'c':
 			handleFinish(ui.openSelectedStream(lnkOpenChat))
-			return nil
 		case 'f':
 			var curFilter *FilterInput
 			switch ui.mainPage.focusedList {
@@ -112,42 +111,34 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			ui.mainPage.commandLine.InputHandler()(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone), nil)
 			ui.mainPage.commandLine.InputHandler()(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone), nil)
 			ui.app.SetFocus(ui.mainPage.commandLine)
-			return nil
 		case 'F':
 			switch ui.mainPage.focusedList {
 			case ui.mainPage.twitchList:
 				ui.twitchFilter.inverted = false
 				ui.twitchFilter.input = ""
-				ui.updateTwitchList(ui.twitchFilter.input)
+				ui.refreshTwitchList()
 			case ui.mainPage.strimsList:
 				ui.strimsFilter.inverted = false
 				ui.strimsFilter.input = ""
-				ui.updateStrimsList(ui.strimsFilter.input)
+				ui.refreshStrimsList()
 			}
-			return nil
 		case 'G':
 			ui.mainPage.focusedList.SetCurrentItem(listCnt - 1)
-			return nil
 		case 'g':
 			ui.mainPage.focusedList.SetCurrentItem(0)
-			return nil
 		case 'i':
 			ui.mainPage.con.ResizeItem(ui.mainPage.streamsCon, 0, 0)
 			ui.app.SetFocus(ui.mainPage.streamInfo)
-			return nil
 		case 'j':
 			if listIdx != listCnt-1 {
 				ui.mainPage.focusedList.SetCurrentItem(listIdx + 1)
 			}
-			return nil
 		case 'k':
 			if listIdx != 0 {
 				ui.mainPage.focusedList.SetCurrentItem(listIdx - 1)
 			}
-			return nil
 		case 'l':
 			handleFinish(ui.openSelectedStream(lnkOpenEmbed))
-			return nil
 		case 'M':
 			offset, _ := ui.mainPage.focusedList.GetOffset()
 			_, _, _, height := ui.mainPage.focusedList.GetRect()
@@ -178,29 +169,22 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 				ui.mainPage.focusedList = ui.mainPage.twitchList
 				ui.refreshTwitchList()
 			}
-			return nil
 		case 'q':
 			ui.app.Stop()
-			return nil
 		case 'r':
 			ui.mainPage.commandLine.SetText(":sync")
 			ui.app.SetFocus(ui.mainPage.commandLine)
-			return nil
 		case 'R':
 			ui.mainPage.commandLine.SetText(":update!")
 			ui.app.SetFocus(ui.mainPage.commandLine)
-			return nil
 		case 's':
 			handleFinish(ui.openSelectedStream(lnkOpenStrims))
-			return nil
 		case 't':
 			ui.toggleStrimsList()
 			ui.app.SetFocus(ui.mainPage.twitchList)
 			ui.refreshTwitchList()
-			return nil
 		case 'w':
 			handleFinish(ui.openSelectedStream(lnkOpenHomePage))
-			return nil
 		case 'z':
 			rOff, cOff := ui.mainPage.focusedList.GetOffset()
 			_, _, _, height := ui.mainPage.focusedList.GetRect()
@@ -234,6 +218,9 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		case ':':
 			ui.mainPage.commandLine.SetText(":")
 			ui.app.SetFocus(ui.mainPage.commandLine)
+			ui.mainPage.commandLine.Autocomplete()
+		default:
+			return event
 		}
 	case tcell.KeyLeft:
 		return nil
@@ -243,7 +230,6 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			ui.mainPage.focusedList.SetCurrentItem(listIdx + 1)
 		}
 		ui.mainPage.focusedList.SetOffset(rOff+1, cOff)
-		return nil
 	case tcell.KeyCtrlY:
 		rOff, cOff := ui.mainPage.focusedList.GetOffset()
 		_, _, _, height := ui.mainPage.focusedList.GetInnerRect()
@@ -253,7 +239,6 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			}
 			ui.mainPage.focusedList.SetOffset(rOff-1, cOff)
 		}
-		return nil
 	case tcell.KeyCtrlW:
 		ui.enableStrimsList()
 		switch ui.mainPage.focusedList {
@@ -266,7 +251,6 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 			ui.mainPage.focusedList = ui.mainPage.twitchList
 			ui.refreshTwitchList()
 		}
-		return nil
 	case tcell.KeyCtrlU:
 		_, _, _, height := ui.mainPage.focusedList.GetRect()
 		jumpoff := (height / 4) - 1
@@ -285,26 +269,22 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		}
 	case tcell.KeyEnter, tcell.KeyRight, tcell.KeyCtrlJ:
 		handleFinish(ui.openSelectedStream(lnkOpenEmbed))
-		return nil
 	case tcell.KeyDown, tcell.KeyCtrlN:
 		if listIdx != listCnt-1 {
 			ui.mainPage.focusedList.SetCurrentItem(listIdx + 1)
 		}
-		return nil
 	case tcell.KeyUp, tcell.KeyCtrlP:
 		if listIdx != 0 {
 			ui.mainPage.focusedList.SetCurrentItem(listIdx - 1)
 		}
-		return nil
 	case tcell.KeyCtrlH:
 		rOff, cOff := ui.mainPage.focusedList.GetOffset()
 		ui.mainPage.focusedList.SetOffset(rOff, cOff-1)
-		return nil
 	case tcell.KeyCtrlL:
 		rOff, cOff := ui.mainPage.focusedList.GetOffset()
 		ui.mainPage.focusedList.SetOffset(rOff, cOff+1)
-		return nil
+	default:
+		return event
 	}
-	// Let the default list primitive key event handler handle the rest
-	return event
+	return nil
 }

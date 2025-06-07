@@ -124,6 +124,14 @@ func NewUI() *UI {
 		Usage:       "h[elp[] [subject[]",
 		MinArgs:     0,
 		MaxArgs:     1,
+		Complete: func(u *UI, s string) []string {
+			possibleCmds := ui.cmdRegistry.matchPossibleCommands(s)
+			entries := make([]string, 0, len(possibleCmds))
+			for _, cmd := range possibleCmds {
+				entries = append(entries, ":help "+cmd.Name)
+			}
+			return entries
+		},
 		Execute: func(u *UI, args []string, bang bool) error {
 			var help string
 			switch len(args) {
@@ -365,6 +373,39 @@ func (ui *UI) setupMainPage() {
 	ui.mainPage.commandLine.SetFieldBackgroundColor(tcell.ColorBlack)
 	ui.mainPage.commandLine.SetChangedFunc(ui.parseCommand)
 	ui.mainPage.commandLine.SetFinishedFunc(ui.execCommand)
+	ui.mainPage.commandLine.SetAutocompletedFunc(func(text string, index int, source int) bool {
+		if source != tview.AutocompletedNavigate {
+			ui.mainPage.commandLine.SetText(text)
+			if source == tview.AutocompletedEnter {
+				ui.execCommand(tcell.KeyEnter)
+				return true
+			}
+		}
+		return false
+	})
+	ui.mainPage.commandLine.SetAutocompleteFunc(func(currentText string) []string {
+		if currentText == "" {
+			return nil
+		}
+		fields := strings.Split(currentText, " ")
+		switch len(fields) {
+		case 1:
+			possibleCmds := ui.cmdRegistry.matchPossibleCommands(strings.TrimLeft(fields[0], ":"))
+			entries := make([]string, 0, len(possibleCmds))
+			for _, cmd := range possibleCmds {
+				entries = append(entries, ":"+cmd.Name)
+			}
+			return entries
+		case 2:
+			possibleCmds := ui.cmdRegistry.matchPossibleCommands(strings.TrimLeft(fields[0], ":"))
+			if len(possibleCmds) == 1 {
+				if possibleCmds[0].Complete != nil {
+					return possibleCmds[0].Complete(ui, fields[1])
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func (ui *UI) updateMainKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
