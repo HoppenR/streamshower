@@ -15,13 +15,6 @@ const (
 	CacheFolder = "streamshower"
 )
 
-// Streamshower
-// TODO(ss): [ ] '/': Search instead of filter.
-// TODO(ss): [ ] On-demand get start time for angelthump streams
-//               From https://api.angelthump.com/v2/streams
-// TODO(ss): [ ] Don't display m3u8 streams of angelthump, instead make them
-//               expandable/collapsable under the angelthump stream they're from
-
 func main() {
 	background := flag.Bool(
 		"b",
