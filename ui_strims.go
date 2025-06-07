@@ -25,17 +25,17 @@ func (ui *UI) updateStrimsList(filter string) {
 		ui.mainPage.strimsList.AddItem("", "", 0, nil)
 		return
 	}
-	for ix := range ixs {
-		mainstr := ui.mainPage.streams.Strims.Data[ix].Channel
+	for _, v := range ixs {
+		mainstr := ui.mainPage.streams.Strims.Data[v].Channel
 		color := "green"
-		if ui.mainPage.streams.Strims.Data[ix].Nsfw {
+		if ui.mainPage.streams.Strims.Data[v].Nsfw {
 			color = "red"
 		}
 		secstr := fmt.Sprintf(
 			" %-6d[%s:-:u]%s[-:-:-]",
-			ui.mainPage.streams.Strims.Data[ix].Rustlers,
+			ui.mainPage.streams.Strims.Data[v].Rustlers,
 			color,
-			tview.Escape(ui.mainPage.streams.Strims.Data[ix].Title),
+			tview.Escape(ui.mainPage.streams.Strims.Data[v].Title),
 		)
 		ui.mainPage.strimsList.AddItem(mainstr, secstr, 0, nil)
 	}
@@ -107,7 +107,7 @@ func (ui *UI) matchStrimsListIndex(filter string) []int {
 	for i, v := range ui.mainPage.streams.Strims.Data {
 		var match func(string) bool = re.MatchString
 		matched := match(v.Service) || match(v.Title) || match(v.Channel)
-		if matched != ui.twitchFilter.inverted {
+		if matched != ui.strimsFilter.inverted {
 			ixs = append(ixs, i)
 		}
 	}

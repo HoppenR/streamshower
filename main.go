@@ -15,6 +15,9 @@ const (
 	CacheFolder = "streamshower"
 )
 
+// TODO: Command history
+// TODO: Command tab-completion
+
 func main() {
 	background := flag.Bool(
 		"b",
