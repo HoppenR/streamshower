@@ -16,7 +16,6 @@ const (
 )
 
 // TODO: Command history
-// TODO: Command copyurl
 
 func main() {
 	background := flag.Bool(

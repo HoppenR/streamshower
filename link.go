@@ -93,6 +93,19 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 	return cmd.Start()
 }
 
+func (ui *UI) copySelectedStreamToClipboard(method OpenMethod) error {
+	data, err := ui.getSelectedStreamData()
+	if err != nil {
+		return err
+	}
+	url, err := streamToUrl(data, method)
+	if err != nil {
+		return err
+	}
+	return exec.Command("wl-copy", url.String()).Run()
+
+}
+
 func (ui *UI) getSelectedStreamData() (sc.StreamData, error) {
 	listIdx := ui.mainPage.focusedList.GetCurrentItem()
 	primaryText, _ := ui.mainPage.focusedList.GetItemText(listIdx)

@@ -61,8 +61,6 @@ func (ui *UI) streamInfoInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		case 'i', 'q':
 			ui.mainPage.con.ResizeItem(ui.mainPage.streamsCon, 0, 1)
 			ui.app.SetFocus(ui.mainPage.focusedList)
-			ui.refreshTwitchList()
-			ui.refreshStrimsList()
 			return nil
 			// case 'u':
 			// 	data, err := ui.getSelectedStreamData()

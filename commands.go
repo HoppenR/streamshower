@@ -49,10 +49,42 @@ var defaultCommands = []*Command{{
 		return nil
 	},
 }, {
+	Name:        "copyurl",
+	Description: "Copy url of stream by the chosen method",
+	Usage:       "c[opyurl[] {method}",
+	MinArgs:     1,
+	MaxArgs:     1,
+	Complete: func(u *UI, s string) []string {
+		methods := []string{"embed", "homepage", "mpv", "strims", "chat"}
+		matches := make([]string, 0, len(methods))
+		for _, method := range methods {
+			if strings.HasPrefix(method, s) {
+				matches = append(matches, ":copyurl "+method)
+			}
+		}
+		return matches
+	},
+	Execute: func(ui *UI, args []string, bang bool) error {
+		switch args[0] {
+		case "embed":
+			return ui.copySelectedStreamToClipboard(lnkOpenEmbed)
+		case "homepage":
+			return ui.copySelectedStreamToClipboard(lnkOpenHomePage)
+		case "mpv":
+			return ui.copySelectedStreamToClipboard(lnkOpenMpv)
+		case "strims":
+			return ui.copySelectedStreamToClipboard(lnkOpenStrims)
+		case "chat":
+			return ui.copySelectedStreamToClipboard(lnkOpenChat)
+		default:
+			return fmt.Errorf("unsupported method")
+		}
+	},
+}, {
 	Name:        "focus",
 	Description: "Focus the window for {list}",
 	Usage:       "f[ocus[] {list=twitch|strims|toggle}",
-	MinArgs:     0,
+	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string) []string {
 		lists := []string{"twitch", "strims", "toggle"}
@@ -116,10 +148,9 @@ var defaultCommands = []*Command{{
 				help += fmt.Sprintf(":[red]%s[-] - %s", cmd.Usage, cmd.Description)
 			}
 		}
+		// TODO: This is probably bad:
 		ui.mainPage.streamInfo.SetText(help)
 		ui.mainPage.streamInfo.SetTitle("HELP")
-		ui.mainPage.con.ResizeItem(ui.mainPage.streamsCon, 0, 0)
-		ui.app.SetFocus(ui.mainPage.streamInfo)
 		return nil
 	},
 }, {
@@ -170,9 +201,9 @@ var defaultCommands = []*Command{{
 	},
 }, {
 	Name:        "set",
-	Description: "Set [option[] or [no{option}[], no argument shows all options, ! toggles the value",
-	Usage:       "s[et[] [option[![][]",
-	MinArgs:     0,
+	Description: "Set [option[] or [no{option}[], ! toggles the value. Available options: strims",
+	Usage:       "se[t[] [option[![][]",
+	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string) []string {
 		options := []string{"strims"}
@@ -191,8 +222,6 @@ var defaultCommands = []*Command{{
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
 		switch len(args) {
-		case 0:
-			ui.mainPage.appStatusText.Write([]byte("[red]strims[-] - whether to keep the strims window open"))
 		case 1:
 			var prefixno bool
 			arg := args[0]
@@ -264,6 +293,10 @@ func (r *CommandRegistry) Help() string {
 }
 
 func (ui *UI) parseCommandChain(cmdLine string) {
+	if cmdLine == "" {
+		ui.app.SetFocus(ui.mainPage.focusedList)
+		return
+	}
 	commands := strings.Split(cmdLine, "|")
 	for i, cmd := range commands {
 		cmd = strings.TrimSpace(cmd)
@@ -279,10 +312,6 @@ func (ui *UI) parseCommandChain(cmdLine string) {
 }
 
 func (ui *UI) parseCommand(cmd string) error {
-	if cmd == "" {
-		ui.app.SetFocus(ui.mainPage.focusedList)
-		return nil
-	}
 	if strings.HasPrefix(cmd, ":") {
 		cmd = strings.TrimPrefix(cmd, ":")
 		namepart, args, bang := parseCommandParts(cmd)
@@ -349,7 +378,12 @@ func (ui *UI) execCommandChainSilent(cmdLine string) error {
 
 func (ui *UI) execCommand(cmdLine string) error {
 	ui.mainPage.commandLine.SetText(cmdLine)
-	return ui.execCommandSilent(cmdLine)
+	err := ui.execCommandSilent(cmdLine)
+	if err != nil {
+		return err
+	}
+	ui.app.SetFocus(ui.mainPage.focusedList)
+	return nil
 }
 
 func (ui *UI) execCommandSilent(cmdLine string) error {
@@ -476,8 +510,11 @@ func (ui *UI) searchNext() {
 	ui.mainPage.commandLine.SetText("/" + ui.mainPage.lastSearch)
 	for i := 1; i <= count; i++ {
 		index := (current + i) % count
-		mainText, _ := list.GetItemText(index)
-		if strings.Contains(strings.ToLower(mainText), strings.ToLower(ui.mainPage.lastSearch)) {
+		primaryText, secondaryText := list.GetItemText(index)
+		if strings.Contains(strings.ToLower(primaryText), strings.ToLower(ui.mainPage.lastSearch)) {
+			list.SetCurrentItem(index)
+			return
+		} else if strings.Contains(strings.ToLower(secondaryText), strings.ToLower(ui.mainPage.lastSearch)) {
 			list.SetCurrentItem(index)
 			return
 		}
@@ -495,8 +532,8 @@ func (ui *UI) searchPrev() {
 	ui.mainPage.commandLine.SetText("?" + ui.mainPage.lastSearch)
 	for i := 1; i <= count; i++ {
 		index := (current - i + count) % count
-		mainText, _ := list.GetItemText(index)
-		if strings.Contains(strings.ToLower(mainText), strings.ToLower(ui.mainPage.lastSearch)) {
+		primaryText, _ := list.GetItemText(index)
+		if strings.Contains(strings.ToLower(primaryText), strings.ToLower(ui.mainPage.lastSearch)) {
 			list.SetCurrentItem(index)
 			return
 		}
