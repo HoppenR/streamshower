@@ -8,62 +8,62 @@ import (
 	"github.com/rivo/tview"
 )
 
-func (ui *UI) refreshStrimsList() {
-	if ui.mainPage.focusedList != ui.mainPage.strimsList {
-		ui.mainPage.strimsList.SetChangedFunc(nil)
-		defer ui.mainPage.strimsList.SetChangedFunc(ui.updateStrimsStreamInfo)
+func (m *MainPage) refreshStrimsList() {
+	if m.focusedList != m.strimsList {
+		m.strimsList.SetChangedFunc(nil)
+		defer m.strimsList.SetChangedFunc(m.updateStrimsStreamInfo)
 	}
-	oldIdx := ui.mainPage.strimsList.GetCurrentItem()
-	ui.updateStrimsList(ui.strimsFilter.input)
-	ui.mainPage.strimsList.SetCurrentItem(oldIdx)
+	oldIdx := m.strimsList.GetCurrentItem()
+	m.updateStrimsList(m.strimsFilter.input)
+	m.strimsList.SetCurrentItem(oldIdx)
 }
 
-func (ui *UI) updateStrimsList(filter string) {
-	ui.mainPage.strimsList.Clear()
-	ixs := ui.matchStrimsListIndex(filter)
+func (m *MainPage) updateStrimsList(filter string) {
+	m.strimsList.Clear()
+	ixs := m.matchStrimsListIndex(filter)
 	if ixs == nil {
-		ui.mainPage.strimsList.AddItem("", "", 0, nil)
+		m.strimsList.AddItem("", "", 0, nil)
 		return
 	}
 	for _, v := range ixs {
-		mainstr := ui.mainPage.streams.Strims.Data[v].Channel
+		mainstr := m.streams.Strims.Data[v].Channel
 		color := "green"
-		if ui.mainPage.streams.Strims.Data[v].Nsfw {
+		if m.streams.Strims.Data[v].Nsfw {
 			color = "red"
 		}
 		secstr := fmt.Sprintf(
 			" %-6d[%s:-:u]%s[-:-:-]",
-			ui.mainPage.streams.Strims.Data[v].Rustlers,
+			m.streams.Strims.Data[v].Rustlers,
 			color,
-			tview.Escape(ui.mainPage.streams.Strims.Data[v].Title),
+			tview.Escape(m.streams.Strims.Data[v].Title),
 		)
-		ui.mainPage.strimsList.AddItem(mainstr, secstr, 0, nil)
+		m.strimsList.AddItem(mainstr, secstr, 0, nil)
 	}
 }
 
-func (ui *UI) updateStrimsStreamInfo(ix int, pri, sec string, _ rune) {
+func (m *MainPage) updateStrimsStreamInfo(ix int, pri, sec string, _ rune) {
 	var index int = -1
-	for i, v := range ui.mainPage.streams.Strims.Data {
+	for i, v := range m.streams.Strims.Data {
 		if pri == v.Channel {
 			index = i
 			break
 		}
 	}
 	add := func(c string) {
-		ui.mainPage.streamInfo.Write([]byte(c))
+		m.streamInfo.Write([]byte(c))
 	}
-	ui.mainPage.streamInfo.Clear()
+	m.streamInfo.Clear()
 	if index == -1 {
-		ui.mainPage.streamInfo.SetTitle("Stream Info")
+		m.streamInfo.SetTitle("Stream Info")
 		add("No results")
 	} else {
-		selStream := ui.mainPage.streams.Strims.Data[index]
+		selStream := m.streams.Strims.Data[index]
 		if selStream.Service == "m3u8" {
 			selStream.Title = selStream.URL
 		} else {
 			selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
 		}
-		ui.mainPage.streamInfo.SetTitle(selStream.Channel)
+		m.streamInfo.SetTitle(selStream.Channel)
 		add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
 		add(fmt.Sprintf("[red]Rustlers[-]: %d [lightgray](%d afk)[-]\n", selStream.Rustlers, selStream.AfkRustlers))
 		add(fmt.Sprintf("[red]Service[-]: %s\n", selStream.Service))
@@ -95,19 +95,19 @@ func (ui *UI) disableStrimsList() {
 	}
 }
 
-func (ui *UI) matchStrimsListIndex(filter string) []int {
+func (m *MainPage) matchStrimsListIndex(filter string) []int {
 	var ixs []int
 	re, err := regexp.Compile(`(?i)` + filter)
 	if err != nil {
-		for i := range ui.mainPage.streams.Strims.Data {
+		for i := range m.streams.Strims.Data {
 			ixs = append(ixs, i)
 		}
 		return ixs
 	}
-	for i, v := range ui.mainPage.streams.Strims.Data {
+	for i, v := range m.streams.Strims.Data {
 		var match func(string) bool = re.MatchString
 		matched := match(v.Service) || match(v.Title) || match(v.Channel)
-		if matched != ui.strimsFilter.inverted {
+		if matched != m.strimsFilter.inverted {
 			ixs = append(ixs, i)
 		}
 	}

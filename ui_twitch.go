@@ -10,58 +10,58 @@ import (
 	"github.com/rivo/tview"
 )
 
-func (ui *UI) refreshTwitchList() {
-	if ui.mainPage.focusedList != ui.mainPage.twitchList {
-		ui.mainPage.twitchList.SetChangedFunc(nil)
-		defer ui.mainPage.twitchList.SetChangedFunc(ui.updateTwitchStreamInfo)
+func (m *MainPage) refreshTwitchList() {
+	if m.focusedList != m.twitchList {
+		m.twitchList.SetChangedFunc(nil)
+		defer m.twitchList.SetChangedFunc(m.updateTwitchStreamInfo)
 	}
-	oldIdx := ui.mainPage.twitchList.GetCurrentItem()
-	ui.updateTwitchList(ui.twitchFilter.input)
-	ui.mainPage.twitchList.SetCurrentItem(oldIdx)
+	oldIdx := m.twitchList.GetCurrentItem()
+	m.updateTwitchList(m.twitchFilter.input)
+	m.twitchList.SetCurrentItem(oldIdx)
 }
 
-func (ui *UI) updateTwitchList(filter string) {
-	ui.mainPage.twitchList.Clear()
-	ixs := ui.matchTwitchListIndex(filter)
+func (m *MainPage) updateTwitchList(filter string) {
+	m.twitchList.Clear()
+	ixs := m.matchTwitchListIndex(filter)
 	if ixs == nil {
-		ui.mainPage.twitchList.AddItem("", "", 0, nil)
+		m.twitchList.AddItem("", "", 0, nil)
 		return
 	}
 	for _, v := range ixs {
-		mainstr := ui.mainPage.streams.Twitch.Data[v].UserName
+		mainstr := m.streams.Twitch.Data[v].UserName
 		secstr := fmt.Sprintf(
 			" %-6d[green:-:u]%s[-:-:-]",
-			ui.mainPage.streams.Twitch.Data[v].ViewerCount,
-			tview.Escape(ui.mainPage.streams.Twitch.Data[v].GameName),
+			m.streams.Twitch.Data[v].ViewerCount,
+			tview.Escape(m.streams.Twitch.Data[v].GameName),
 		)
-		ui.mainPage.twitchList.AddItem(mainstr, secstr, 0, nil)
+		m.twitchList.AddItem(mainstr, secstr, 0, nil)
 	}
 }
 
-func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
+func (m *MainPage) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
 	var index int = -1
-	for i, v := range ui.mainPage.streams.Twitch.Data {
+	for i, v := range m.streams.Twitch.Data {
 		if pri == v.UserName {
 			index = i
 			break
 		}
 	}
 	add := func(c string) {
-		ui.mainPage.streamInfo.Write([]byte(c))
+		m.streamInfo.Write([]byte(c))
 	}
 
-	ui.mainPage.streamInfo.Clear()
+	m.streamInfo.Clear()
 	if index == -1 {
-		ui.mainPage.streamInfo.SetTitle("Stream Info")
+		m.streamInfo.SetTitle("Stream Info")
 		add("No results")
 	} else {
-		selStream := ui.mainPage.streams.Twitch.Data[index]
+		selStream := m.streams.Twitch.Data[index]
 		startLocal := selStream.StartedAt.Local()
 		if selStream.GameName == "" {
 			selStream.GameName = "[::d]None[::-]"
 		}
 		selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
-		ui.mainPage.streamInfo.SetTitle(selStream.UserName)
+		m.streamInfo.SetTitle(selStream.UserName)
 		add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
 		add(fmt.Sprintf("[red]Viewers[-]: %d\n", selStream.ViewerCount))
 		add(fmt.Sprintf("[red]Game[-]: %s\n", selStream.GameName))
@@ -78,19 +78,19 @@ func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
 	}
 }
 
-func (ui *UI) matchTwitchListIndex(filter string) []int {
+func (m *MainPage) matchTwitchListIndex(filter string) []int {
 	var ixs []int
 	re, err := regexp.Compile(`(?i)` + filter)
 	if err != nil {
-		for i := range ui.mainPage.streams.Twitch.Data {
+		for i := range m.streams.Twitch.Data {
 			ixs = append(ixs, i)
 		}
 		return ixs
 	}
-	for i, v := range ui.mainPage.streams.Twitch.Data {
+	for i, v := range m.streams.Twitch.Data {
 		var match func(string) bool = re.MatchString
 		matched := match(v.GameName) || match(v.Title) || match(v.UserName)
-		if matched != ui.twitchFilter.inverted {
+		if matched != m.twitchFilter.inverted {
 			ixs = append(ixs, i)
 		}
 	}

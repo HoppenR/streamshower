@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"regexp"
 	"sort"
 	"strings"
-	"unicode"
-
-	"github.com/gdamore/tcell/v2"
 )
+
+type CommandRegistry struct {
+	commands  []*Command
+	history   []string
+	histIndex int
+}
 
 type Command struct {
 	Name        string
@@ -24,10 +26,8 @@ type Command struct {
 	MaxArgs     int
 }
 
-type CommandRegistry struct {
-	commands  []*Command
-	history   []string
-	histIndex int
+func NewCommandRegistry() *CommandRegistry {
+	return &CommandRegistry{commands: defaultCommands}
 }
 
 var defaultCommands = []*Command{{
@@ -39,17 +39,17 @@ var defaultCommands = []*Command{{
 	Execute: func(ui *UI, args []string, bang bool) error {
 		var filters []*FilterInput
 		if ui.mainPage.focusedList == ui.mainPage.twitchList || bang {
-			filters = append(filters, ui.twitchFilter)
+			filters = append(filters, ui.mainPage.twitchFilter)
 		}
 		if ui.mainPage.focusedList == ui.mainPage.strimsList || bang {
-			filters = append(filters, ui.strimsFilter)
+			filters = append(filters, ui.mainPage.strimsFilter)
 		}
 		for _, f := range filters {
 			f.inverted = false
 			f.input = ""
 		}
-		ui.refreshTwitchList()
-		ui.refreshStrimsList()
+		ui.mainPage.refreshTwitchList()
+		ui.mainPage.refreshStrimsList()
 		return nil
 	},
 }, {
@@ -119,12 +119,12 @@ var defaultCommands = []*Command{{
 		if args[0] == "twitch" || (args[0] == "toggle" && ui.mainPage.focusedList == ui.mainPage.strimsList) {
 			ui.app.SetFocus(ui.mainPage.twitchList)
 			ui.mainPage.focusedList = ui.mainPage.twitchList
-			ui.refreshTwitchList()
+			ui.mainPage.refreshTwitchList()
 		} else if args[0] == "strims" || (args[0] == "toggle" && ui.mainPage.focusedList == ui.mainPage.twitchList) {
 			ui.enableStrimsList()
 			ui.app.SetFocus(ui.mainPage.strimsList)
 			ui.mainPage.focusedList = ui.mainPage.strimsList
-			ui.refreshStrimsList()
+			ui.mainPage.refreshStrimsList()
 		} else {
 			return fmt.Errorf("unknown list %s", args[0])
 		}
@@ -140,7 +140,7 @@ var defaultCommands = []*Command{{
 		return []string{":global//d"}
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {
-		return applyFilterFromArg(ui, strings.Join(args, " "), bang, false)
+		return applyFilterFromArg(ui.mainPage, strings.Join(args, " "), bang, false)
 	},
 }, {
 	Name:        "help",
@@ -241,42 +241,7 @@ var defaultCommands = []*Command{{
 		}
 		return matches
 	},
-	Execute: func(ui *UI, args []string, bang bool) error {
-		key, err := parseMappingKey(args[0])
-		if err != nil {
-			return err
-		}
-		switch key.Key() {
-		case tcell.KeyRune:
-			switch key.Rune() {
-			case 'G':
-				ui.moveBot()
-			case 'g':
-				ui.moveTop()
-			case 'j':
-				ui.moveDown()
-			case 'k':
-				ui.moveUp()
-			case 'M':
-				ui.moveMid()
-			case 'z':
-				ui.redrawMid()
-			}
-		case tcell.KeyCtrlE:
-			ui.redrawUp()
-		case tcell.KeyCtrlY:
-			ui.redrawDown()
-		case tcell.KeyCtrlU:
-			ui.movePgUp()
-		case tcell.KeyCtrlD:
-			ui.movePgDown()
-		case tcell.KeyDown, tcell.KeyCtrlN:
-			ui.moveDown()
-		case tcell.KeyUp, tcell.KeyCtrlP:
-			ui.moveUp()
-		}
-		return nil
-	},
+	Execute: execNormCommand,
 }, {
 	Name:        "open",
 	Description: "Open stream with the chosen method",
@@ -389,9 +354,8 @@ var defaultCommands = []*Command{{
 				} else {
 					ui.enableStrimsList()
 				}
-				// ui.app.SetFocus(ui.mainPage.twitchList)
-				ui.refreshTwitchList()
-				ui.refreshStrimsList()
+				ui.mainPage.refreshTwitchList()
+				ui.mainPage.refreshStrimsList()
 			}
 		}
 		return nil
@@ -430,232 +394,6 @@ var defaultCommands = []*Command{{
 		return []string{":vglobal//d"}
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {
-		return applyFilterFromArg(ui, strings.Join(args, " "), bang, true)
+		return applyFilterFromArg(ui.mainPage, strings.Join(args, " "), bang, true)
 	},
 }}
-
-func NewCommandRegistry() *CommandRegistry {
-	return &CommandRegistry{commands: defaultCommands}
-}
-
-func (ui *UI) parseCommandChain(cmdLine string) {
-	if cmdLine == "" {
-		ui.app.SetFocus(ui.mainPage.focusedList)
-		return
-	}
-	commands := strings.Split(cmdLine, "|")
-	for i, cmd := range commands {
-		cmd = strings.TrimSpace(cmd)
-		if cmd == "" {
-			continue
-		}
-		// NOTE: bar implies command
-		if i > 0 {
-			cmd = ":" + cmd
-		}
-		err := ui.parseCommand(cmd)
-		if err != nil {
-			ui.mainPage.appStatusText.SetText(err.Error())
-		}
-	}
-}
-
-func (ui *UI) parseCommand(cmd string) error {
-	if strings.HasPrefix(cmd, ":") {
-		cmd = strings.TrimPrefix(cmd, ":")
-		namepart, args, bang := parseCommandParts(cmd)
-		if namepart == "" {
-			return nil
-		}
-		possible := ui.cmdRegistry.matchPossibleCommands(namepart)
-		switch len(possible) {
-		case 1:
-			if len(args) < possible[0].MinArgs {
-				return fmt.Errorf("Argument required for command: %s", possible[0].Name)
-			} else if len(args) > possible[0].MaxArgs {
-				return fmt.Errorf("Trailing characters: %s", strings.Join(args, ""))
-			}
-			if possible[0].OnType != nil {
-				err := possible[0].OnType(ui, args, bang)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	} else if strings.HasPrefix(cmd, "/") && len(cmd) > 1 {
-		ui.mainPage.lastSearch = strings.TrimPrefix(cmd, "/")
-	} else if strings.HasPrefix(cmd, "?") && len(cmd) > 1 {
-		ui.mainPage.lastSearch = strings.TrimPrefix(cmd, "?")
-	}
-	return nil
-}
-
-// Callback for when a user has manually typed in a command
-func (ui *UI) execCommandChainCallback(key tcell.Key) {
-	if key == tcell.KeyEnter {
-		cmdLine := ui.mainPage.commandLine.GetText()
-		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
-		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
-		err := ui.execCommandChainSilent(cmdLine)
-		if err != nil {
-			ui.mainPage.appStatusText.SetText(err.Error())
-		}
-	}
-	ui.app.SetFocus(ui.mainPage.focusedList)
-}
-
-// Execute the command chain from a mapping
-func (ui *UI) execCommandChainMapping(cmdLine string) error {
-	// Execute directly if has suffix <CR>
-	if strings.HasSuffix(cmdLine, "<CR>") {
-		cmdLine = strings.TrimSuffix(cmdLine, "<CR>")
-		ui.mainPage.commandLine.SetText(cmdLine)
-		return ui.execCommandChainSilent(cmdLine)
-	}
-	// Input partial command, accept autocomplete if has suffix <Tab>
-	var complete bool
-	if strings.HasSuffix(cmdLine, "<Tab>") {
-		cmdLine = strings.TrimSuffix(cmdLine, "<Tab>")
-		complete = true
-	}
-	ui.mainPage.commandLine.SetText(cmdLine)
-	ui.app.SetFocus(ui.mainPage.commandLine)
-	ui.mainPage.commandLine.Autocomplete()
-	if complete {
-		ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
-	}
-	return nil
-}
-
-// Execute a complete chain (without trailing special characters) as is,
-// without printing
-func (ui *UI) execCommandChainSilent(cmdLine string) error {
-	commands := strings.Split(cmdLine, "|")
-	for i, cmd := range commands {
-		cmd = strings.TrimSpace(cmd)
-		if cmd == "" {
-			continue
-		}
-		// NOTE: bar implies command
-		if i > 0 {
-			cmd = ":" + cmd
-		}
-		err := ui.execCommand(cmd)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Execute a command
-func (ui *UI) execCommand(cmdLine string) error {
-	cmdLine = strings.TrimSpace(cmdLine)
-	if cmdLine == "" {
-		return nil
-	}
-	if strings.HasPrefix(cmdLine, ":") {
-		cmdLine = strings.TrimPrefix(cmdLine, ":")
-		namepart, args, bang := parseCommandParts(cmdLine)
-		if namepart == "" {
-			return nil
-		}
-		possible := ui.cmdRegistry.matchPossibleCommands(namepart)
-		switch len(possible) {
-		case 0:
-			return fmt.Errorf("[red]Unknown command: %s[-]", namepart)
-		case 1:
-			if len(args) < possible[0].MinArgs {
-				return fmt.Errorf("Argument required for command: %s", possible[0].Name)
-			} else if len(args) > possible[0].MaxArgs {
-				return fmt.Errorf(fmt.Sprintf("Trailing characters: %s", strings.Join(args, "")))
-			}
-			if possible[0].Execute != nil {
-				err := possible[0].Execute(ui, args, bang)
-				if err != nil {
-					return err
-				}
-			}
-		default:
-			var names []string
-			for _, m := range possible {
-				names = append(names, m.Name)
-			}
-			return fmt.Errorf("[red]Ambiguous: %s (could be %s)[-]", namepart, strings.Join(names, ", "))
-		}
-	} else if strings.HasPrefix(cmdLine, "/") {
-		ui.searchNext()
-	} else if strings.HasPrefix(cmdLine, "?") {
-		ui.searchPrev()
-	}
-	return nil
-}
-
-func extractCmdName(text string) (name string, rest string) {
-	for i, r := range text {
-		if !unicode.IsLetter(r) {
-			return text[:i], text[i:]
-		}
-	}
-	return text, ""
-}
-
-func applyFilterFromArg(ui *UI, arg string, bang bool, invertMatching bool) error {
-	re := regexp.MustCompile(`^\/([^\/]*)\/([dp])$`)
-	matches := re.FindStringSubmatch(arg)
-	if len(matches) <= 2 {
-		return errors.New("No matches")
-	}
-	cmdArgument := matches[1]
-	exCmd := rune(matches[2][0])
-	var filters []*FilterInput
-	if ui.mainPage.focusedList == ui.mainPage.twitchList || bang {
-		filters = append(filters, ui.twitchFilter)
-	}
-	if ui.mainPage.focusedList == ui.mainPage.strimsList || bang {
-		filters = append(filters, ui.strimsFilter)
-	}
-	for _, f := range filters {
-		if invertMatching {
-			f.inverted = (exCmd == 'p')
-		} else {
-			f.inverted = (exCmd == 'd')
-		}
-		f.input = cmdArgument
-	}
-	ui.refreshTwitchList()
-	ui.refreshStrimsList()
-	return nil
-}
-
-func (r *CommandRegistry) matchPossibleCommands(name string) []*Command {
-	possible := []*Command{}
-	for _, cmd := range r.commands {
-		if strings.HasPrefix(cmd.Name, name) {
-			possible = append(possible, cmd)
-		}
-	}
-	return possible
-}
-
-func parseCommandParts(input string) (string, []string, bool) {
-	cmdLine := strings.TrimSpace(strings.TrimPrefix(input, ":"))
-	name, rest := extractCmdName(cmdLine)
-	bang := false
-	rest = strings.TrimSpace(rest)
-	parts := strings.Fields(rest)
-	var args []string
-	for _, v := range parts {
-		if strings.Contains(v, "!") {
-			for _, x := range strings.Split(v, "!") {
-				if len(x) > 0 {
-					args = append(args, x)
-				}
-			}
-			bang = true
-		} else if len(v) != 0 {
-			args = append(args, v)
-		}
-	}
-	return name, args, bang
-}
