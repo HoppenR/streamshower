@@ -11,14 +11,13 @@ import (
 	"sync"
 	"time"
 
-	sc "github.com/HoppenR/streamchecker"
+	ls "github.com/HoppenR/libstreams"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
 type UI struct {
 	app          *tview.Application
-	pages        *tview.Pages
 	mainPage     *MainPage
 	twitchFilter *FilterInput
 	strimsFilter *FilterInput
@@ -36,22 +35,20 @@ type FilterInput struct {
 	inverted bool
 }
 
-type DialogueBox struct {
-	modal *tview.Modal
-}
-
 type MainPage struct {
 	con           *tview.Flex
-	focusedList   *tview.List
-	streamInfo    *tview.TextView
-	streams       *sc.Streams
 	streamsCon    *tview.Flex
 	infoCon       *tview.Flex
+	commandRow    *tview.Flex
+	commandLine   *tview.InputField
+	appStatusText *tview.TextView
+	fetchTimeView *tview.TextView
+	streamInfo    *tview.TextView
 	strimsList    *tview.List
 	twitchList    *tview.List
-	appStatusText *tview.TextView
-	commandLine   *tview.InputField
 
+	focusedList   *tview.List // Can either be strimsList or twitchList
+	streams       *ls.Streams
 	lastSearch    string
 	strimsVisible bool
 }
@@ -65,7 +62,7 @@ func (ui *UI) updateStreams(ctx context.Context) error {
 	ctxTo, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	streams, err := sc.GetServerData(ctxTo, ui.addr)
+	streams, err := ls.GetServerData(ctxTo, ui.addr)
 	if err != nil {
 		return err
 	}
@@ -97,18 +94,19 @@ func (ui *UI) forceRemoteUpdate(ctx context.Context) error {
 
 func NewUI() *UI {
 	ui := &UI{
-		app:   tview.NewApplication(),
-		pages: tview.NewPages(),
+		app: tview.NewApplication(),
 		mainPage: &MainPage{
-			con:           tview.NewFlex(),
-			streamsCon:    tview.NewFlex(),
-			infoCon:       tview.NewFlex(),
-			twitchList:    tview.NewList(),
-			strimsList:    tview.NewList(),
-			streamInfo:    tview.NewTextView(),
 			appStatusText: tview.NewTextView(),
 			commandLine:   tview.NewInputField(),
-			streams:       new(sc.Streams),
+			commandRow:    tview.NewFlex(),
+			con:           tview.NewFlex(),
+			fetchTimeView: tview.NewTextView(),
+			infoCon:       tview.NewFlex(),
+			streamInfo:    tview.NewTextView(),
+			streamsCon:    tview.NewFlex(),
+			strimsList:    tview.NewList(),
+			twitchList:    tview.NewList(),
+			streams:       new(ls.Streams),
 			strimsVisible: true,
 		},
 		twitchFilter:        &FilterInput{},
@@ -126,10 +124,8 @@ func (ui *UI) Run() error {
 	// Set title to "Streamshower"
 	fmt.Print("\033]2;Streamshower\a")
 
-	ui.pages.SetBackgroundColor(tcell.ColorDefault)
 	ui.setupMainPage()
-	ui.pages.AddPage("Main Window", ui.mainPage.con, true, true)
-	ui.app.SetRoot(ui.pages, true)
+	ui.app.SetRoot(ui.mainPage.con, true)
 
 	// NOTE: These are in-order (LIFO) deferred calls
 	ctx, cancel := context.WithCancel(context.Background())
@@ -156,14 +152,15 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 	defer ui.wg.Done()
 
 	var err error
-	timer := time.NewTimer(0)
-	defer timer.Stop()
-
+	fetchTimer := time.NewTimer(0)
+	defer fetchTimer.Stop()
+	redrawTimer := time.NewTicker(time.Second)
+	defer redrawTimer.Stop()
 	for {
 		if !ui.mainPage.streams.LastFetched.IsZero() {
 			var nextUpdate time.Time
 			nextUpdate = ui.mainPage.streams.LastFetched.Add(ui.mainPage.streams.RefreshInterval)
-			timer.Reset(time.Until(nextUpdate))
+			fetchTimer.Reset(time.Until(nextUpdate))
 		}
 		select {
 		case <-ctx.Done():
@@ -175,12 +172,14 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 				return
 			} else if err != nil {
 				setStatus("red", fmt.Sprintf("Error updating: %s", err))
-				continue
 			}
+			continue
+		case <-redrawTimer.C:
+			ui.app.Draw()
 			continue
 		case <-ui.updateStreamsCh:
 			// pass
-		case <-timer.C:
+		case <-fetchTimer.C:
 			// pass
 		}
 
@@ -188,7 +187,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		err = ui.updateStreams(ctx)
 		if errors.Is(err, context.Canceled) {
 			return
-		} else if errors.Is(err, sc.ErrAuthPending) {
+		} else if errors.Is(err, ls.ErrAuthPending) {
 			setStatus("yellow", "run `:sync` to refresh after authenticating")
 			continue
 		} else if err != nil {
@@ -218,8 +217,10 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 func (ui *UI) setupMainPage() {
 	ui.mainPage.con.AddItem(ui.mainPage.streamsCon, 0, 1, true)
 	ui.mainPage.con.AddItem(ui.mainPage.infoCon, 0, 2, false)
+	ui.mainPage.con.SetDirection(tview.FlexColumn)
 	ui.mainPage.streamsCon.SetDirection(tview.FlexRow)
 	ui.mainPage.infoCon.SetDirection(tview.FlexRow)
+	ui.mainPage.commandRow.SetDirection(tview.FlexColumn)
 	// TwitchList
 	ui.mainPage.streamsCon.AddItem(ui.mainPage.twitchList, 0, 3, true)
 	ui.mainPage.twitchList.SetChangedFunc(ui.updateTwitchStreamInfo)
@@ -248,21 +249,41 @@ func (ui *UI) setupMainPage() {
 	ui.mainPage.appStatusText.SetDynamicColors(true)
 	ui.mainPage.appStatusText.SetTextAlign(tview.AlignCenter)
 	// StreamInfo
-	ui.mainPage.infoCon.AddItem(ui.mainPage.streamInfo, 0, 1, true)
+	ui.mainPage.infoCon.AddItem(ui.mainPage.streamInfo, 0, 1, false)
 	ui.mainPage.streamInfo.SetBackgroundColor(tcell.ColorDefault)
 	ui.mainPage.streamInfo.SetBorder(true)
 	ui.mainPage.streamInfo.SetInputCapture(ui.streamInfoInputHandler)
 	ui.mainPage.streamInfo.SetDynamicColors(true)
 	ui.mainPage.streamInfo.SetTitle("Stream Info")
+	// CommandRow
+	ui.mainPage.infoCon.AddItem(ui.mainPage.commandRow, 1, 0, false)
+	ui.mainPage.commandRow.AddItem(ui.mainPage.commandLine, 0, 1, true)
+	ui.mainPage.commandRow.AddItem(ui.mainPage.fetchTimeView, 26, 0, false)
 	// CommandLine
-	ui.mainPage.infoCon.AddItem(ui.mainPage.commandLine, 1, 0, true)
-	ui.mainPage.commandLine.SetText("please see `:help` or `:map`!")
+	ui.mainPage.commandLine.SetText(" Please see `:help` or `:map`!")
 	ui.mainPage.commandLine.SetFieldBackgroundColor(tcell.ColorBlack)
 	ui.mainPage.commandLine.SetChangedFunc(ui.parseCommandChain)
 	ui.mainPage.commandLine.SetFinishedFunc(ui.execCommandChainCallback)
 	ui.mainPage.commandLine.SetInputCapture(ui.commandLineCapture)
 	ui.mainPage.commandLine.SetAutocompletedFunc(ui.commandLineCompleteDone)
 	ui.mainPage.commandLine.SetAutocompleteFunc(ui.commandLineComplete)
+	// Fetch time view
+	ui.mainPage.fetchTimeView.SetBackgroundColor(tcell.ColorOrange)
+	ui.mainPage.fetchTimeView.SetTextColor(tcell.ColorBlack)
+	ui.mainPage.fetchTimeView.SetText("No timing data ")
+	ui.mainPage.fetchTimeView.SetTextAlign(tview.AlignRight)
+	ui.mainPage.fetchTimeView.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+		if !ui.mainPage.streams.LastFetched.IsZero() {
+			ui.mainPage.fetchTimeView.Clear()
+			ui.mainPage.fetchTimeView.Write(fmt.Appendf(
+				nil,
+				"%s (update in %.0fs) ",
+				ui.mainPage.streams.LastFetched.In(time.Local).Format(time.TimeOnly),
+				time.Until(ui.mainPage.streams.LastFetched.Add(ui.mainPage.streams.RefreshInterval)).Seconds(),
+			))
+		}
+		return x, y, width, height
+	})
 }
 
 func (ui *UI) commandLineCapture(event *tcell.EventKey) *tcell.EventKey {
@@ -303,9 +324,16 @@ func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) boo
 	if source == tview.AutocompletedEnter {
 		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
 		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
-		ui.execCommand(cmdLine)
+		ui.mainPage.commandLine.SetText(cmdLine)
+		err := ui.execCommand(cmdLine)
+		if err != nil {
+			ui.mainPage.appStatusText.SetText(err.Error())
+			return false
+		}
+		ui.app.SetFocus(ui.mainPage.focusedList)
 		return true
 	} else if source == tview.AutocompletedTab {
+		// Move cursor into the regex pattern if completion is :v or :g
 		if cmdLine == ":global//d" || cmdLine == ":global//p" {
 			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
 			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
