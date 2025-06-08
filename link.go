@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"text/template"
 
-	sc "github.com/HoppenR/streamchecker"
+	ls "github.com/HoppenR/libstreams"
 )
 
 type OpenMethod int
@@ -106,7 +106,7 @@ func (ui *UI) copySelectedStreamToClipboard(method OpenMethod) error {
 
 }
 
-func (ui *UI) getSelectedStreamData() (sc.StreamData, error) {
+func (ui *UI) getSelectedStreamData() (ls.StreamData, error) {
 	listIdx := ui.mainPage.focusedList.GetCurrentItem()
 	if listIdx >= ui.mainPage.focusedList.GetItemCount() {
 		return nil, errors.New("current selection out of bounds")
@@ -114,14 +114,14 @@ func (ui *UI) getSelectedStreamData() (sc.StreamData, error) {
 	primaryText, _ := ui.mainPage.focusedList.GetItemText(listIdx)
 	switch ui.mainPage.focusedList {
 	case ui.mainPage.twitchList:
-		ix := slices.IndexFunc(ui.mainPage.streams.Twitch.Data, func(sd sc.TwitchStreamData) bool {
+		ix := slices.IndexFunc(ui.mainPage.streams.Twitch.Data, func(sd ls.TwitchStreamData) bool {
 			return sd.UserName == primaryText
 		})
 		if ix != -1 {
 			return &ui.mainPage.streams.Twitch.Data[ix], nil
 		}
 	case ui.mainPage.strimsList:
-		ix := slices.IndexFunc(ui.mainPage.streams.Strims.Data, func(sd sc.StrimsStreamData) bool {
+		ix := slices.IndexFunc(ui.mainPage.streams.Strims.Data, func(sd ls.StrimsStreamData) bool {
 			return sd.Channel == primaryText
 		})
 		if ix != -1 {
@@ -131,7 +131,7 @@ func (ui *UI) getSelectedStreamData() (sc.StreamData, error) {
 	return nil, errors.New("cannot open empty result")
 }
 
-func streamToUrl(data sc.StreamData, method OpenMethod) (*url.URL, error) {
+func streamToUrl(data ls.StreamData, method OpenMethod) (*url.URL, error) {
 	tmplSrc, ok := urlBuilders[method]
 	if !ok {
 		return nil, errors.New("unsupported method")
@@ -147,7 +147,7 @@ func streamToUrl(data sc.StreamData, method OpenMethod) (*url.URL, error) {
 	return nil, errors.New("template source incomplete")
 }
 
-func (ut *UrlTemplates) apply(data sc.StreamData) (*url.URL, error) {
+func (ut *UrlTemplates) apply(data ls.StreamData) (*url.URL, error) {
 	if ut.RawURL != "" {
 		raw, err := executeTemplateString(ut.RawURL, data)
 		if err != nil {
@@ -181,7 +181,7 @@ func (ut *UrlTemplates) apply(data sc.StreamData) (*url.URL, error) {
 	return url, nil
 }
 
-func executeTemplateString(templateString string, data sc.StreamData) (string, error) {
+func executeTemplateString(templateString string, data ls.StreamData) (string, error) {
 	tmpl, err := template.New("t").Parse(templateString)
 	if err != nil {
 		return "", err

@@ -162,7 +162,7 @@ var defaultCommands = []*Command{{
 		switch len(args) {
 		case 0:
 			for _, cmd := range ui.cmdRegistry.commands {
-				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, ":[red]%s[-] - %s\n", cmd.Usage, cmd.Description))
+				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, ":[red]%s[-]\n  %s\n", cmd.Usage, cmd.Description))
 			}
 		case 1:
 			query := strings.TrimPrefix(args[0], ":")
@@ -178,7 +178,7 @@ var defaultCommands = []*Command{{
 	},
 }, {
 	Name:        "map",
-	Description: "map {lhs} into {rhs}",
+	Description: "map keypress [lhs[] into command [rhs[]. Use <Bar> over | for chaining commands in [rhs[]",
 	Usage:       "m[ap[] [lhs rhs[]",
 	MinArgs:     0,
 	MaxArgs:     math.MaxInt,
@@ -210,7 +210,9 @@ var defaultCommands = []*Command{{
 			if err := validateMappingKey(args[0]); err != nil {
 				return err
 			}
-			ui.mapRegistry.mappings[args[0]] = strings.Join(args[1:], " ")
+			rhs := strings.Join(args[1:], " ")
+			rhs = strings.ReplaceAll(rhs, "<Bar>", "|")
+			ui.mapRegistry.mappings[args[0]] = rhs
 			return nil
 		}
 		sort.Strings(mappings)
@@ -336,7 +338,7 @@ var defaultCommands = []*Command{{
 	},
 }, {
 	Name:        "sync",
-	Description: "Syncronize streams: client side",
+	Description: "Syncronize all streams on the client side",
 	Usage:       "sy[nc[]",
 	MinArgs:     0,
 	MaxArgs:     0,
@@ -344,7 +346,7 @@ var defaultCommands = []*Command{{
 		select {
 		case ui.updateStreamsCh <- struct{}{}:
 		default:
-			ui.mainPage.appStatusText.SetText("[red]Skipped fetching streams, try again later...[-]")
+			return errors.New("[red]Skipped fetching streams, try again later...[-]")
 		}
 		return nil
 	},
@@ -406,7 +408,7 @@ var defaultCommands = []*Command{{
 	},
 }, {
 	Name:        "update",
-	Description: "Update streams: server side",
+	Description: "Update all streams on the connected server",
 	Usage:       "u[pdate[][![]",
 	MinArgs:     0,
 	MaxArgs:     0,
@@ -414,7 +416,7 @@ var defaultCommands = []*Command{{
 		select {
 		case ui.forceRemoteUpdateCh <- struct{}{}:
 		default:
-			ui.mainPage.appStatusText.SetText("[red]Skipped remote update, try again later...[-]")
+			return errors.New("[red]Skipped remote update, try again later...[-]")
 		}
 		return nil
 	},
@@ -451,8 +453,10 @@ func (ui *UI) parseCommandChain(cmdLine string) {
 		if i > 0 {
 			cmd = ":" + cmd
 		}
-
-		_ = ui.parseCommand(cmd)
+		err := ui.parseCommand(cmd)
+		if err != nil {
+			ui.mainPage.appStatusText.SetText(err.Error())
+		}
 	}
 }
 
@@ -474,7 +478,7 @@ func (ui *UI) parseCommand(cmd string) error {
 			if possible[0].OnType != nil {
 				err := possible[0].OnType(ui, args, bang)
 				if err != nil {
-					ui.mainPage.appStatusText.SetText(err.Error())
+					return err
 				}
 			}
 		}
@@ -500,8 +504,8 @@ func (ui *UI) execCommandChainCallback(key tcell.Key) {
 	ui.app.SetFocus(ui.mainPage.focusedList)
 }
 
-// Execute the command chain, either from a mapping or directly from commandline
-func (ui *UI) execCommandChain(cmdLine string) error {
+// Execute the command chain from a mapping
+func (ui *UI) execCommandChainMapping(cmdLine string) error {
 	// Execute directly if has suffix <CR>
 	if strings.HasSuffix(cmdLine, "<CR>") {
 		cmdLine = strings.TrimSuffix(cmdLine, "<CR>")
@@ -523,6 +527,8 @@ func (ui *UI) execCommandChain(cmdLine string) error {
 	return nil
 }
 
+// Execute a complete chain (without trailing special characters) as is,
+// without printing
 func (ui *UI) execCommandChainSilent(cmdLine string) error {
 	commands := strings.Split(cmdLine, "|")
 	for i, cmd := range commands {
@@ -534,7 +540,7 @@ func (ui *UI) execCommandChainSilent(cmdLine string) error {
 		if i > 0 {
 			cmd = ":" + cmd
 		}
-		err := ui.execCommandSilent(cmd)
+		err := ui.execCommand(cmd)
 		if err != nil {
 			return err
 		}
@@ -542,18 +548,8 @@ func (ui *UI) execCommandChainSilent(cmdLine string) error {
 	return nil
 }
 
-// Execute a single command and print it
+// Execute a command
 func (ui *UI) execCommand(cmdLine string) error {
-	ui.mainPage.commandLine.SetText(cmdLine)
-	err := ui.execCommandSilent(cmdLine)
-	if err != nil {
-		return err
-	}
-	ui.app.SetFocus(ui.mainPage.focusedList)
-	return nil
-}
-
-func (ui *UI) execCommandSilent(cmdLine string) error {
 	cmdLine = strings.TrimSpace(cmdLine)
 	if cmdLine == "" {
 		return nil

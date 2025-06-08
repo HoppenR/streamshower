@@ -28,7 +28,7 @@ var defaultMappings = map[string]string{
 	"<CR>":    ":open embed | quit<CR>",
 	"<Down>":  ":normal <Down><CR>",
 	"<Enter>": ":open embed | quit<CR>",
-	"<F1>":    "please see `:help` or `:map`!<CR>",
+	"<F1>":    " Please see `:help` or `:map`!<CR>",
 	"<Right>": ":open embed | quit<CR>",
 	"<Space>": ":open ",
 	"<Up>":    ":normal <Up><CR>",
@@ -92,7 +92,7 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	lhs := encodeMappingKey(event)
 	rhs, ok := ui.mapRegistry.mappings[lhs]
 	if ok {
-		err := ui.execCommandChain(rhs)
+		err := ui.execCommandChainMapping(rhs)
 		if err != nil {
 			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
 		}

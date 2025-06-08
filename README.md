@@ -3,54 +3,9 @@
 A simple frontend to show live streams in a TUI that also acts as a daemon to
 prevent excessive API calls.
 
-![](demo.gif)
+## Help
 
-## Usage
-Running Streamshower as a server in the background with the `-b` flag will fetch
-Twitch and Strims data every refresh interval (`-r`), and then serve this data
-at the specified address (`-a`). The address should match the one set as the
-callback URI in your [Twitch project](https://dev.twitch.tv)
-
-Running the program normally, at the same address as the server, then fetches
-data from the background instance and displays it in an interactive TUI.
-
-
-## Config
-All settings are stored in a config.json file, except for the environment
-variable `$BROWSER` which is used to open links in the TUI.
-
-```json
-{
-    "client_id": "xxx",
-    "client_secret": "yyy",
-    "user_name": "twitchuser1"
-}
-```
-
-You can also provide them via the environment variables. You can put this in
-a .env file for a Docker deployment. These are then saved internally.
-
-```sh
-CLIENT_ID=xxx
-CLIENT_SECRET=yyy
-USER_NAME=twitchuser1
-```
-
-Then run it as follows.
-
-```console
-docker build . -t streamshower
-docker run --env-file .env --name streamshower -p 8181:8181 streamshower:latest
-```
-
-Explanation of environment variables:
-
-`Client ID`: The api key of your Twitch project
-
-`Client Secret`: The secret of your Twitch project
-
-`User ID`: Your Twitch username
-
+See the commands `:help` and `:map` inside the TUI.
 
 ## Navigation
 standard vim navigation: `jkl` or arrow keys + enter
