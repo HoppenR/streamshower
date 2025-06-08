@@ -80,7 +80,7 @@ func (ui *UI) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
 
 func (ui *UI) matchTwitchListIndex(filter string) []int {
 	var ixs []int
-	re, err := regexp.Compile("(?i)" + filter)
+	re, err := regexp.Compile(`(?i)` + filter)
 	if err != nil {
 		for i := range ui.mainPage.streams.Twitch.Data {
 			ixs = append(ixs, i)
