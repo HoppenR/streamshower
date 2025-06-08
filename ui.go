@@ -23,6 +23,7 @@ type UI struct {
 	strimsFilter *FilterInput
 	addr         string
 	cmdRegistry  *CommandRegistry
+	mapRegistry  *MappingRegistry
 
 	updateStreamsCh     chan struct{}
 	forceRemoteUpdateCh chan struct{}
@@ -39,17 +40,16 @@ type DialogueBox struct {
 }
 
 type MainPage struct {
-	con             *tview.Flex
-	focusedList     *tview.List
-	streamInfo      *tview.TextView
-	streams         *sc.Streams
-	streamsCon      *tview.Flex
-	infoCon         *tview.Flex
-	strimsList      *tview.List
-	twitchList      *tview.List
-	keybindInfoText *tview.TextView
-	appStatusText   *tview.TextView
-	commandLine     *tview.InputField
+	con           *tview.Flex
+	focusedList   *tview.List
+	streamInfo    *tview.TextView
+	streams       *sc.Streams
+	streamsCon    *tview.Flex
+	infoCon       *tview.Flex
+	strimsList    *tview.List
+	twitchList    *tview.List
+	appStatusText *tview.TextView
+	commandLine   *tview.InputField
 
 	lastSearch    string
 	strimsVisible bool
@@ -99,21 +99,21 @@ func NewUI() *UI {
 		app:   tview.NewApplication(),
 		pages: tview.NewPages(),
 		mainPage: &MainPage{
-			con:             tview.NewFlex(),
-			streamsCon:      tview.NewFlex(),
-			infoCon:         tview.NewFlex(),
-			twitchList:      tview.NewList(),
-			strimsList:      tview.NewList(),
-			streamInfo:      tview.NewTextView(),
-			keybindInfoText: tview.NewTextView(),
-			appStatusText:   tview.NewTextView(),
-			commandLine:     tview.NewInputField(),
-			streams:         new(sc.Streams),
-			strimsVisible:   true,
+			con:           tview.NewFlex(),
+			streamsCon:    tview.NewFlex(),
+			infoCon:       tview.NewFlex(),
+			twitchList:    tview.NewList(),
+			strimsList:    tview.NewList(),
+			streamInfo:    tview.NewTextView(),
+			appStatusText: tview.NewTextView(),
+			commandLine:   tview.NewInputField(),
+			streams:       new(sc.Streams),
+			strimsVisible: true,
 		},
 		twitchFilter:        &FilterInput{},
 		strimsFilter:        &FilterInput{},
 		cmdRegistry:         NewCommandRegistry(),
+		mapRegistry:         NewMappingRegistry(),
 		updateStreamsCh:     make(chan struct{}, 1),
 		forceRemoteUpdateCh: make(chan struct{}, 1),
 	}
@@ -253,114 +253,86 @@ func (ui *UI) setupMainPage() {
 	ui.mainPage.streamInfo.SetInputCapture(ui.streamInfoInputHandler)
 	ui.mainPage.streamInfo.SetDynamicColors(true)
 	ui.mainPage.streamInfo.SetTitle("Stream Info")
-	// TextInfo
-	ui.mainPage.infoCon.AddItem(ui.mainPage.keybindInfoText, 3, 0, false)
-	ui.mainPage.keybindInfoText.SetBackgroundColor(tcell.ColorDefault)
-	ui.mainPage.keybindInfoText.SetDynamicColors(true)
-	ui.mainPage.keybindInfoText.SetDrawFunc(ui.updateMainKeybindInfo)
-	ui.mainPage.streamInfo.SetFocusFunc(func() {
-		ui.mainPage.keybindInfoText.SetDrawFunc(ui.updateInfowinKeybindInfo)
-	})
-	ui.mainPage.streamInfo.SetBlurFunc(func() {
-		ui.mainPage.keybindInfoText.SetDrawFunc(ui.updateMainKeybindInfo)
-	})
 	// CommandLine
 	ui.mainPage.infoCon.AddItem(ui.mainPage.commandLine, 1, 0, true)
-	ui.mainPage.commandLine.SetFieldTextColor(tcell.ColorForestGreen)
+	ui.mainPage.commandLine.SetText("please see `:help` or `:map`!")
 	ui.mainPage.commandLine.SetFieldBackgroundColor(tcell.ColorBlack)
 	ui.mainPage.commandLine.SetChangedFunc(ui.parseCommandChain)
 	ui.mainPage.commandLine.SetFinishedFunc(ui.execCommandChainCallback)
-	ui.mainPage.commandLine.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
-		case tcell.KeyUp:
-			if len(ui.cmdRegistry.history) == 0 {
-				return nil
-			}
-			if ui.cmdRegistry.histIndex < len(ui.cmdRegistry.history)-1 {
-				ui.cmdRegistry.histIndex += 1
-			}
-			cmdLine := ui.cmdRegistry.history[ui.cmdRegistry.histIndex]
-			ui.mainPage.commandLine.SetText(cmdLine)
-			return nil
-		case tcell.KeyDown:
-			if len(ui.cmdRegistry.history) == 0 {
-				return nil
-			}
-			if ui.cmdRegistry.histIndex > 0 {
-				ui.cmdRegistry.histIndex -= 1
-			}
-			cmdLine := ui.cmdRegistry.history[ui.cmdRegistry.histIndex]
-			ui.mainPage.commandLine.SetText(cmdLine)
-			return nil
-		case tcell.KeyCtrlP:
-			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
-		case tcell.KeyCtrlN:
-			return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
-		case tcell.KeyCtrlY:
-			return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
-		}
-		return event
-	})
-	ui.mainPage.commandLine.SetAutocompletedFunc(func(cmdLine string, index int, source int) bool {
-		if source == tview.AutocompletedEnter {
-			ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
-			ui.execCommand(cmdLine)
-			return true
-		} else if source == tview.AutocompletedTab {
-			ui.mainPage.commandLine.SetText(cmdLine)
-			return false
-		}
-		return false
-	})
-	ui.mainPage.commandLine.SetAutocompleteFunc(func(currentText string) []string {
-		if currentText == "" {
+	ui.mainPage.commandLine.SetInputCapture(ui.commandLineCapture)
+	ui.mainPage.commandLine.SetAutocompletedFunc(ui.commandLineCompleteDone)
+	ui.mainPage.commandLine.SetAutocompleteFunc(ui.commandLineComplete)
+}
+
+func (ui *UI) commandLineCapture(event *tcell.EventKey) *tcell.EventKey {
+	switch event.Key() {
+	case tcell.KeyUp:
+		if len(ui.cmdRegistry.history) == 0 {
 			return nil
 		}
-		fields := strings.Split(currentText, " ")
-		switch len(fields) {
-		case 1:
-			possibleCmds := ui.cmdRegistry.matchPossibleCommands(strings.TrimLeft(fields[0], ":"))
-			entries := make([]string, 0, len(possibleCmds))
-			for _, cmd := range possibleCmds {
-				entries = append(entries, ":"+cmd.Name)
-			}
-			return entries
-		case 2:
-			cmd := strings.TrimPrefix(fields[0], ":")
-			namepart, _, _ := parseCommandParts(cmd)
-			if namepart == "" {
-				return nil
-			}
-			possibleCmds := ui.cmdRegistry.matchPossibleCommands(namepart)
-			if len(possibleCmds) == 1 {
-				if possibleCmds[0].Complete != nil {
-					return possibleCmds[0].Complete(ui, fields[1])
-				}
-			}
+		if ui.cmdRegistry.histIndex > 0 {
+			ui.cmdRegistry.histIndex -= 1
 		}
+		cmdLine := ui.cmdRegistry.history[ui.cmdRegistry.histIndex]
+		ui.mainPage.commandLine.SetText(cmdLine)
 		return nil
-	})
+	case tcell.KeyDown:
+		if len(ui.cmdRegistry.history) == 0 {
+			return nil
+		}
+		if ui.cmdRegistry.histIndex < len(ui.cmdRegistry.history)-1 {
+			ui.cmdRegistry.histIndex += 1
+		}
+		cmdLine := ui.cmdRegistry.history[ui.cmdRegistry.histIndex]
+		ui.mainPage.commandLine.SetText(cmdLine)
+		return nil
+	case tcell.KeyCtrlP:
+		return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
+	case tcell.KeyCtrlN:
+		return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+	case tcell.KeyCtrlY:
+		return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+	}
+	return event
 }
 
-func (ui *UI) updateMainKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
-	ui.mainPage.keybindInfoText.Clear()
-	if w >= 90 {
-		ui.mainPage.keybindInfoText.Write([]byte(SHORTCUT_MAINWIN_HELP))
-		if !ui.mainPage.streams.LastFetched.IsZero() {
-			ui.mainPage.keybindInfoText.Write([]byte(strings.Repeat(" ", 25)))
-			ui.mainPage.keybindInfoText.Write([]byte(ui.mainPage.streams.LastFetched.In(time.Local).Format(time.Stamp)))
-		}
+func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) bool {
+	if source == tview.AutocompletedEnter {
+		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
+		ui.execCommand(cmdLine)
+		return true
+	} else if source == tview.AutocompletedTab {
+		ui.mainPage.commandLine.SetText(cmdLine)
+		return false
 	}
-	return x, y, w, h
+	return false
 }
 
-func (ui *UI) updateInfowinKeybindInfo(s tcell.Screen, x, y, w, h int) (int, int, int, int) {
-	ui.mainPage.keybindInfoText.Clear()
-	if w >= 15 {
-		ui.mainPage.keybindInfoText.Write([]byte(SHORTCUT_INFOWIN_HELP))
-		if !ui.mainPage.streams.LastFetched.IsZero() {
-			ui.mainPage.keybindInfoText.Write([]byte(ui.mainPage.streams.LastFetched.In(time.Local).Format(time.Stamp)))
+func (ui *UI) commandLineComplete(currentText string) []string {
+	if currentText == "" {
+		return nil
+	}
+	fields := strings.Split(currentText, " ")
+	switch len(fields) {
+	case 1:
+		possibleCmds := ui.cmdRegistry.matchPossibleCommands(strings.TrimLeft(fields[0], ":"))
+		entries := make([]string, 0, len(possibleCmds))
+		for _, cmd := range possibleCmds {
+			entries = append(entries, ":"+cmd.Name)
+		}
+		return entries
+	case 2:
+		cmd := strings.TrimPrefix(fields[0], ":")
+		namepart, _, _ := parseCommandParts(cmd)
+		if namepart == "" {
+			return nil
+		}
+		possibleCmds := ui.cmdRegistry.matchPossibleCommands(namepart)
+		if len(possibleCmds) == 1 {
+			if possibleCmds[0].Complete != nil {
+				return possibleCmds[0].Complete(ui, fields[1])
+			}
 		}
 	}
-	return x, y, w, h
+	return nil
 }

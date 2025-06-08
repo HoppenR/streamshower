@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -31,7 +33,7 @@ type CommandRegistry struct {
 var defaultCommands = []*Command{{
 	Name:        "clear",
 	Description: "Clear filter, ! clears filter for all lists",
-	Usage:       "c[lear[][![]",
+	Usage:       "cl[ear[][![]",
 	MinArgs:     0,
 	MaxArgs:     0,
 	Execute: func(ui *UI, args []string, bang bool) error {
@@ -53,7 +55,7 @@ var defaultCommands = []*Command{{
 }, {
 	Name:        "copyurl",
 	Description: "Copy url of stream by the chosen method",
-	Usage:       "c[opyurl[] {method}",
+	Usage:       "co[pyurl[] {method}",
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(u *UI, s string) []string {
@@ -120,6 +122,12 @@ var defaultCommands = []*Command{{
 	MinArgs:     1,
 	MaxArgs:     math.MaxInt,
 	OnType: func(ui *UI, args []string, bang bool) error {
+		if len(args) == 1 && args[0] == "/" {
+			ui.mainPage.commandLine.SetText(":global//d")
+			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+			return nil
+		}
 		return applyFilterFromArg(ui, strings.Join(args, " "), bang, false)
 	},
 }, {
@@ -137,22 +145,120 @@ var defaultCommands = []*Command{{
 		return entries
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
-		var help string
+		help := "--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n\n"
 		switch len(args) {
 		case 0:
-			help = ui.cmdRegistry.Help()
+			help += ui.cmdRegistry.Help()
 		case 1:
 			query := strings.TrimPrefix(args[0], ":")
 			for _, cmd := range ui.cmdRegistry.commands {
 				if !strings.HasPrefix(cmd.Name, query) {
 					continue
 				}
-				help += fmt.Sprintf(":[red]%s[-] - %s", cmd.Usage, cmd.Description)
+				help += fmt.Sprintf(":[red]%s[-] - %s\n", cmd.Usage, cmd.Description)
 			}
 		}
-		// TODO: This is probably bad:
 		ui.mainPage.streamInfo.SetText(help)
 		ui.mainPage.streamInfo.SetTitle("HELP")
+		return nil
+	},
+}, {
+	Name:        "map",
+	Description: "map {lhs} into {rhs}",
+	Usage:       "m[ap[] [lhs rhs[]",
+	MinArgs:     0,
+	MaxArgs:     2,
+	Complete: func(u *UI, s string) []string {
+		methods := maps.Keys(u.mapRegistry.mappings)
+		matches := make([]string, 0, len(u.mapRegistry.mappings))
+		for method := range methods {
+			if strings.HasPrefix(method, s) {
+				matches = append(matches, ":map "+method)
+			}
+		}
+		return matches
+	},
+	Execute: func(ui *UI, args []string, bang bool) error {
+		var mappings []string
+		switch len(args) {
+		case 0:
+			for lhs, rhs := range ui.mapRegistry.mappings {
+				mappings = append(mappings, fmt.Sprintf("[red]%s[-] - %s\n", lhs, rhs))
+			}
+		case 1:
+			for lhs, rhs := range ui.mapRegistry.mappings {
+				if !strings.HasPrefix(lhs, args[0]) {
+					continue
+				}
+				mappings = append(mappings, fmt.Sprintf("[red]%s[-] - %s\n", lhs, rhs))
+			}
+		case 2:
+			if err := validateMappingKey(args[0]); err != nil {
+				return err
+			}
+			ui.mapRegistry.mappings[args[0]] = args[1]
+			return nil
+		}
+		sort.Strings(mappings)
+		ui.mainPage.streamInfo.Clear()
+		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n"))
+		ui.mainPage.streamInfo.Write([]byte("  `:normal {key}` commands are equivalent to the respective {key} in vim\n\n"))
+		for _, line := range mappings {
+			ui.mainPage.streamInfo.Write([]byte(line))
+		}
+		ui.mainPage.streamInfo.SetTitle("MAPPINGS")
+		return nil
+	},
+}, {
+	Name:        "normal",
+	Description: "Execute normal mode {command}",
+	Usage:       "n[ormal[] {command}",
+	MinArgs:     1,
+	MaxArgs:     1,
+	Complete: func(u *UI, s string) []string {
+		methods := []string{"G", "g", "j", "k", "M", "z", "<C-e>", "<C-y>", "<C-u>", "<C-d>", "<C-n>", "<C-p>", "<Down>", "<Up>"}
+		matches := make([]string, 0, len(methods))
+		for _, method := range methods {
+			if strings.HasPrefix(method, s) {
+				matches = append(matches, ":normal "+method)
+			}
+		}
+		return matches
+	},
+	Execute: func(ui *UI, args []string, bang bool) error {
+		key, err := parseMappingKey(args[0])
+		if err != nil {
+			return err
+		}
+		switch key.Key() {
+		case tcell.KeyRune:
+			switch key.Rune() {
+			case 'G':
+				ui.moveBot()
+			case 'g':
+				ui.moveTop()
+			case 'j':
+				ui.moveDown()
+			case 'k':
+				ui.moveUp()
+			case 'M':
+				ui.moveMid()
+			case 'z':
+				ui.redrawMid()
+			}
+		case tcell.KeyCtrlE:
+			ui.redrawUp()
+		case tcell.KeyCtrlY:
+			ui.redrawDown()
+		case tcell.KeyCtrlU:
+			ui.movePgUp()
+		case tcell.KeyCtrlD:
+			ui.movePgDown()
+		case tcell.KeyDown, tcell.KeyCtrlN:
+			ui.moveDown()
+		case tcell.KeyUp, tcell.KeyCtrlP:
+			ui.moveUp()
+		}
 		return nil
 	},
 }, {
@@ -188,9 +294,36 @@ var defaultCommands = []*Command{{
 		}
 	},
 }, {
+	Name:        "scrollinfo",
+	Description: "Scroll the stream info window by {direction=up|down}",
+	Usage:       "sc[rollinfo[] {direction}",
+	MinArgs:     1,
+	MaxArgs:     1,
+	Complete: func(u *UI, s string) []string {
+		methods := []string{"up", "down"}
+		matches := make([]string, 0, len(methods))
+		for _, method := range methods {
+			if strings.HasPrefix(method, s) {
+				matches = append(matches, ":scrollinfo "+method)
+			}
+		}
+		return matches
+	},
+	Execute: func(ui *UI, args []string, bang bool) error {
+		switch args[0] {
+		case "down":
+			ui.scrollInfo(1)
+		case "up":
+			ui.scrollInfo(-1)
+		default:
+			return fmt.Errorf("unknown direction: %s", args[0])
+		}
+		return nil
+	},
+}, {
 	Name:        "sync",
 	Description: "Syncronize streams: client side",
-	Usage:       "s[ync[]",
+	Usage:       "sy[nc[]",
 	MinArgs:     0,
 	MaxArgs:     0,
 	Execute: func(ui *UI, args []string, bang bool) error {
@@ -278,6 +411,12 @@ var defaultCommands = []*Command{{
 	MinArgs:     1,
 	MaxArgs:     math.MaxInt,
 	OnType: func(ui *UI, args []string, bang bool) error {
+		if len(args) == 1 && args[0] == "/" {
+			ui.mainPage.commandLine.SetText(":vglobal//d")
+			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+			return nil
+		}
 		return applyFilterFromArg(ui, strings.Join(args, " "), bang, true)
 	},
 }}
@@ -287,7 +426,7 @@ func NewCommandRegistry() *CommandRegistry {
 }
 
 func (r *CommandRegistry) Help() string {
-	var lines []string
+	lines := make([]string, 0, len(r.commands))
 	for _, cmd := range r.commands {
 		lines = append(lines, fmt.Sprintf(":[red]%s[-] - %s", cmd.Usage, cmd.Description))
 	}
@@ -335,14 +474,15 @@ func (ui *UI) parseCommand(cmd string) error {
 				}
 			}
 		}
-	} else if strings.HasPrefix(cmd, "/") {
+	} else if strings.HasPrefix(cmd, "/") && len(cmd) > 1 {
 		ui.mainPage.lastSearch = strings.TrimPrefix(cmd, "/")
-	} else if strings.HasPrefix(cmd, "?") {
+	} else if strings.HasPrefix(cmd, "?") && len(cmd) > 1 {
 		ui.mainPage.lastSearch = strings.TrimPrefix(cmd, "?")
 	}
 	return nil
 }
 
+// Callback for when a user has manually typed in a command
 func (ui *UI) execCommandChainCallback(key tcell.Key) {
 	if key == tcell.KeyEnter {
 		cmdLine := ui.mainPage.commandLine.GetText()
@@ -355,7 +495,16 @@ func (ui *UI) execCommandChainCallback(key tcell.Key) {
 	ui.app.SetFocus(ui.mainPage.focusedList)
 }
 
+// Execute the command chain, either from a mapping or directly from commandline
 func (ui *UI) execCommandChain(cmdLine string) error {
+	cmdLine = strings.ToLower(cmdLine)
+	if !strings.HasSuffix(cmdLine, "<cr>") {
+		ui.mainPage.commandLine.SetText(cmdLine)
+		ui.app.SetFocus(ui.mainPage.commandLine)
+		ui.mainPage.commandLine.Autocomplete()
+		return nil
+	}
+	cmdLine = strings.TrimSuffix(cmdLine, "<cr>")
 	ui.mainPage.commandLine.SetText(cmdLine)
 	return ui.execCommandChainSilent(cmdLine)
 }
@@ -379,6 +528,7 @@ func (ui *UI) execCommandChainSilent(cmdLine string) error {
 	return nil
 }
 
+// Execute a single command and print it
 func (ui *UI) execCommand(cmdLine string) error {
 	ui.mainPage.commandLine.SetText(cmdLine)
 	err := ui.execCommandSilent(cmdLine)
@@ -501,45 +651,4 @@ func parseCommandParts(input string) (string, []string, bool) {
 		}
 	}
 	return name, args, bang
-}
-
-func (ui *UI) searchNext() {
-	list := ui.mainPage.focusedList
-	count := list.GetItemCount()
-	if count == 0 || ui.mainPage.lastSearch == "" {
-		return
-	}
-	current := list.GetCurrentItem()
-	ui.mainPage.commandLine.SetText("/" + ui.mainPage.lastSearch)
-	for i := 1; i <= count; i++ {
-		index := (current + i) % count
-		primaryText, secondaryText := list.GetItemText(index)
-		if strings.Contains(strings.ToLower(primaryText), strings.ToLower(ui.mainPage.lastSearch)) {
-			list.SetCurrentItem(index)
-			return
-		} else if strings.Contains(strings.ToLower(secondaryText), strings.ToLower(ui.mainPage.lastSearch)) {
-			list.SetCurrentItem(index)
-			return
-		}
-	}
-	ui.mainPage.appStatusText.SetText(fmt.Sprintf("[yellow]No match for %q[-]", ui.mainPage.lastSearch))
-}
-
-func (ui *UI) searchPrev() {
-	list := ui.mainPage.focusedList
-	count := list.GetItemCount()
-	if count == 0 || ui.mainPage.lastSearch == "" {
-		return
-	}
-	current := list.GetCurrentItem()
-	ui.mainPage.commandLine.SetText("?" + ui.mainPage.lastSearch)
-	for i := 1; i <= count; i++ {
-		index := (current - i + count) % count
-		primaryText, _ := list.GetItemText(index)
-		if strings.Contains(strings.ToLower(primaryText), strings.ToLower(ui.mainPage.lastSearch)) {
-			list.SetCurrentItem(index)
-			return
-		}
-	}
-	ui.mainPage.appStatusText.SetText(fmt.Sprintf("[yellow]No match for %q[-]", ui.mainPage.lastSearch))
 }

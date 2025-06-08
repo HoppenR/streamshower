@@ -8,51 +8,56 @@ import (
 	"github.com/rivo/tview"
 )
 
-var SHORTCUT_MAINWIN_HELP = strings.Join(
-	[]string{
-		"",
-		"[red]{↓|j|^n}[-]↓",
-		"[red]{↑|k|^p}[-]↑",
-		"[red::u]g[-::-]Top",
-		"[red::u]G[-::-]Bot",
-		"[red::u]^e[-::-]Scr↓",
-		"[red::u]^y[-::-]Scr↑",
-		"[red::u]^h[-::-]Scr←",
-		"[red::u]^l[-::-]Scr→",
-		"[red::u]M[-::-]Mid",
-		"[red::u]^d[-::-]PgDwn",
-		"[red::u]^u[-::-]PgUp",
-		"[red::u]z[-::-]CenterWin",
-		"\n",
-		"[red]{o|^w}[-]ChList",
-		"[red::u]i[-::-]Info",
-		"[red::u]f[-::-]Filter",
-		"[red::u]F[-::-]Rfilter",
-		"[red::u]r[-::-]Sync",
-		"[red::u]R[-::-]Update",
-		"[red::u]t[-::-]ToggleWin",
-		"[red::u]u[-::-]Undo",
-		"[red::u]q[-::-]Quit",
-		"[red::u]![-::-]InverseFilter",
-		"\n",
-		"Open [red]{l|→|↵|^j}[-]Embed",
-		"[red::u]w[-::-]Website",
-		"[red::u]s[-::-]Strims",
-		"[red::u]c[-::-]Chat",
-		"[red::u]m[-::-]Mpv",
-	},
-	" ",
-)
+type MappingRegistry struct {
+	mappings map[string]string
+}
 
-var SHORTCUT_INFOWIN_HELP = strings.Join(
-	[]string{
-		"",
-		"[red]{i|q}[-]Back",
-		"\n",
-		"\n",
-	},
-	" ",
-)
+var defaultMappings = map[string]string{
+	"/":       "/",
+	":":       ":",
+	"<C-b>":   ":scrollinfo up<CR>",
+	"<C-d>":   ":normal <C-d><CR>",
+	"<C-e>":   ":normal <C-e><CR>",
+	"<C-f>":   ":scrollinfo down<CR>",
+	"<C-j>":   ":open embed<CR>",
+	"<C-n>":   ":normal <C-n><CR>",
+	"<C-p>":   ":normal <C-p><CR>",
+	"<C-u>":   ":normal <C-u><CR>",
+	"<C-w>":   ":focus toggle<CR>",
+	"<C-y>":   ":normal <C-y><CR>",
+	"<CR>":    ":open embed | quit<CR>",
+	"<Down>":  ":normal <Down><CR>",
+	"<Enter>": ":open embed | quit<CR>",
+	"<F1>":    "please see `:help` or `:map`!<CR>",
+	"<Right>": ":open embed | quit<CR>",
+	"<Space>": ":open ",
+	"<Up>":    ":normal <Up><CR>",
+	"?":       "?",
+	"G":       ":normal G<CR>",
+	"M":       ":normal M<CR>",
+	"N":       "?<CR>",
+	"R":       ":update | sync<CR>",
+	"U":       ":clear!<CR>",
+	"c":       ":open chat | quit<CR>",
+	"g":       ":normal g<CR>",
+	"j":       ":normal j<CR>",
+	"k":       ":normal k<CR>",
+	"l":       ":open embed | quit<CR>",
+	"m":       ":open mpv | quit<CR>",
+	"n":       "/<CR>",
+	"o":       ":focus toggle<CR>",
+	"q":       ":quit<CR>",
+	"r":       ":sync<CR>",
+	"s":       ":open strims | quit<CR>",
+	"t":       ":set! strims | focus twitch<CR>",
+	"u":       ":clear<CR>",
+	"w":       ":open homepage | quit<CR>",
+	"z":       ":normal z<CR>",
+}
+
+func NewMappingRegistry() *MappingRegistry {
+	return &MappingRegistry{mappings: defaultMappings}
+}
 
 func (ui *UI) streamInfoInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	switch event.Key() {
@@ -76,109 +81,18 @@ func (ui *UI) streamInfoInputHandler(event *tcell.EventKey) *tcell.EventKey {
 }
 
 func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
-	printError := func(err error) {
-		if err != nil {
-			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
-		}
-	}
 	var ok bool
 	ui.mainPage.focusedList, ok = ui.app.GetFocus().(*tview.List)
 	if !ok {
 		return event
 	}
-	switch event.Key() {
-	case tcell.KeyRune:
-		switch event.Rune() {
-		case 'c':
-			printError(ui.execCommandChain(":open chat | quit"))
-		case 'f':
-			ui.editFilter(false)
-		case 'F':
-			ui.editFilter(true)
-		case 'G':
-			ui.moveBot()
-		case 'g':
-			ui.moveTop()
-		case 'i':
-			ui.mainPage.con.ResizeItem(ui.mainPage.streamsCon, 0, 0)
-			ui.app.SetFocus(ui.mainPage.streamInfo)
-		case 'j':
-			ui.moveDown()
-		case 'k':
-			ui.moveUp()
-		case 'l':
-			printError(ui.execCommandChain(":open embed | quit"))
-		case 'M':
-			ui.moveMid()
-		case 'm':
-			printError(ui.execCommandChain(":open mpv | quit"))
-		case 'N':
-			printError(ui.execCommandSilent("?"))
-		case 'n':
-			printError(ui.execCommandSilent("/"))
-		case 'o':
-			printError(ui.execCommand(":focus toggle"))
-		case 'q':
-			printError(ui.execCommand(":quit"))
-		case 'r':
-			printError(ui.execCommand(":sync"))
-		case 'R':
-			printError(ui.execCommandChain(":update | sync"))
-		case 's':
-			printError(ui.execCommandChain(":open strims | quit"))
-		case 't':
-			printError(ui.execCommandChain(":set! strims | focus twitch"))
-		case 'u':
-			printError(ui.execCommand(":clear"))
-		case 'U':
-			printError(ui.execCommand(":clear!"))
-		case 'w':
-			printError(ui.execCommandChain(":open homepage | quit"))
-		case 'z':
-			ui.redrawMid()
-		case '!':
-			ui.invertFilter()
-		case ' ':
-			ui.mainPage.commandLine.SetText(":open ")
-			ui.app.SetFocus(ui.mainPage.commandLine)
-			ui.mainPage.commandLine.Autocomplete()
-		case '/':
-			ui.mainPage.commandLine.SetText("/")
-			ui.app.SetFocus(ui.mainPage.commandLine)
-		case '?':
-			ui.mainPage.commandLine.SetText("?")
-			ui.app.SetFocus(ui.mainPage.commandLine)
-		case ':':
-			ui.mainPage.commandLine.SetText(":")
-			ui.app.SetFocus(ui.mainPage.commandLine)
-			ui.mainPage.commandLine.Autocomplete()
-		default:
-			return event
+	lhs := encodeMappingKey(event)
+	rhs, ok := ui.mapRegistry.mappings[lhs]
+	if ok {
+		err := ui.execCommandChain(rhs)
+		if err != nil {
+			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
 		}
-	case tcell.KeyLeft:
-		return nil
-	case tcell.KeyCtrlE:
-		ui.redrawUp()
-	case tcell.KeyCtrlY:
-		ui.redrawDown()
-	case tcell.KeyCtrlW:
-		printError(ui.execCommand(":focus toggle"))
-	case tcell.KeyCtrlU:
-		ui.movePgUp()
-	case tcell.KeyCtrlD:
-		ui.movePgDown()
-	case tcell.KeyEnter, tcell.KeyRight, tcell.KeyCtrlJ:
-		printError(ui.execCommandChain(":open embed | quit"))
-	case tcell.KeyDown, tcell.KeyCtrlN:
-		ui.moveDown()
-	case tcell.KeyUp, tcell.KeyCtrlP:
-		ui.moveUp()
-	case tcell.KeyCtrlH:
-		ui.redrawLeft()
-	case tcell.KeyCtrlL:
-		ui.redrawRight()
-	default:
-		return event
 	}
 	return nil
 }
@@ -272,53 +186,129 @@ func (ui *UI) redrawMid() {
 	ui.mainPage.focusedList.SetOffset(rOff+delta, cOff)
 }
 
-func (ui *UI) redrawLeft() {
-	rOff, cOff := ui.mainPage.focusedList.GetOffset()
-	ui.mainPage.focusedList.SetOffset(rOff, cOff-1)
+func (ui *UI) scrollInfo(amount int) {
+	// ui.mainPage.streamInfo.GetInputCapture()(tcell.NewEventKey(tcell.KeyRune, 'k', tcell.ModNone))
+	row, _ := ui.mainPage.streamInfo.GetScrollOffset()
+	ui.mainPage.streamInfo.ScrollTo(row+amount, 0)
 }
 
-func (ui *UI) redrawRight() {
-	rOff, cOff := ui.mainPage.focusedList.GetOffset()
-	ui.mainPage.focusedList.SetOffset(rOff, cOff+1)
-}
-
-func (ui *UI) editFilter(invert bool) {
-	var curFilter *FilterInput
-	switch ui.mainPage.focusedList {
-	case ui.mainPage.twitchList:
-		curFilter = ui.twitchFilter
-	case ui.mainPage.strimsList:
-		curFilter = ui.strimsFilter
+func (ui *UI) searchNext() {
+	list := ui.mainPage.focusedList
+	count := list.GetItemCount()
+	if count == 0 || ui.mainPage.lastSearch == "" {
+		return
 	}
-	var repeatType rune
-	if invert {
-		repeatType = 'g'
-	} else {
-		repeatType = 'v'
-	}
-	ui.mainPage.commandLine.SetText(fmt.Sprintf(":%c/%s/d", repeatType, curFilter.input))
-	ui.mainPage.commandLine.InputHandler()(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone), nil)
-	ui.mainPage.commandLine.InputHandler()(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone), nil)
-	ui.app.SetFocus(ui.mainPage.commandLine)
-}
-
-func (ui *UI) invertFilter() {
-	switch ui.mainPage.focusedList {
-	case ui.mainPage.twitchList:
-		if ui.twitchFilter.inverted {
-			ui.mainPage.commandLine.SetText(":v/" + ui.twitchFilter.input + "/d")
-			ui.twitchFilter.inverted = false
-		} else {
-			ui.mainPage.commandLine.SetText(":g/" + ui.twitchFilter.input + "/d")
-			ui.twitchFilter.inverted = true
-		}
-	case ui.mainPage.strimsList:
-		if ui.strimsFilter.inverted {
-			ui.mainPage.commandLine.SetText(":v/" + ui.strimsFilter.input + "/d")
-			ui.strimsFilter.inverted = false
-		} else {
-			ui.mainPage.commandLine.SetText(":g/" + ui.strimsFilter.input + "/d")
-			ui.strimsFilter.inverted = true
+	current := list.GetCurrentItem()
+	ui.mainPage.commandLine.SetText("/" + ui.mainPage.lastSearch)
+	for i := 1; i <= count; i++ {
+		index := (current + i) % count
+		primaryText, secondaryText := list.GetItemText(index)
+		if strings.Contains(strings.ToLower(primaryText), strings.ToLower(ui.mainPage.lastSearch)) {
+			list.SetCurrentItem(index)
+			return
+		} else if strings.Contains(strings.ToLower(secondaryText), strings.ToLower(ui.mainPage.lastSearch)) {
+			list.SetCurrentItem(index)
+			return
 		}
 	}
+	ui.mainPage.appStatusText.SetText(fmt.Sprintf("[yellow]No match for %q[-]", ui.mainPage.lastSearch))
+}
+
+func (ui *UI) searchPrev() {
+	list := ui.mainPage.focusedList
+	count := list.GetItemCount()
+	if count == 0 || ui.mainPage.lastSearch == "" {
+		return
+	}
+	current := list.GetCurrentItem()
+	ui.mainPage.commandLine.SetText("?" + ui.mainPage.lastSearch)
+	for i := 1; i <= count; i++ {
+		index := (current - i + count) % count
+		primaryText, _ := list.GetItemText(index)
+		if strings.Contains(strings.ToLower(primaryText), strings.ToLower(ui.mainPage.lastSearch)) {
+			list.SetCurrentItem(index)
+			return
+		}
+	}
+	ui.mainPage.appStatusText.SetText(fmt.Sprintf("[yellow]No match for %q[-]", ui.mainPage.lastSearch))
+}
+
+func validateMappingKey(input string) error {
+	_, err := parseMappingKey(input)
+	return err
+}
+
+func encodeMappingKey(input *tcell.EventKey) string {
+	switch input.Key() {
+	case tcell.KeyRune:
+		switch input.Rune() {
+		case ' ':
+			return "<Space>"
+		default:
+			return string(input.Rune())
+		}
+	case tcell.KeyBackspace:
+		return "<BS>"
+	case tcell.KeyEnter:
+		return "<CR>"
+	case tcell.KeyDown:
+		return "<Down>"
+	case tcell.KeyEsc:
+		return "<Esc>"
+	case tcell.KeyTab:
+		return "<Tab>"
+	case tcell.KeyUp:
+		return "<Up>"
+	}
+	if input.Key() >= tcell.KeyCtrlA && input.Key() <= tcell.KeyCtrlZ {
+		c := 'a' + rune(input.Key()-tcell.KeyCtrlA)
+		return fmt.Sprintf("<C-%c>", c)
+	}
+	if input.Key() >= tcell.KeyF1 && input.Key() <= tcell.KeyF9 {
+		c := '1' + rune(input.Key()-tcell.KeyF1)
+		return fmt.Sprintf("<F%c>", c)
+	}
+	return fmt.Sprintf("<Key-%d>", input.Key())
+}
+
+func parseMappingKey(input string) (*tcell.EventKey, error) {
+	input = strings.TrimSpace(input)
+	if strings.HasPrefix(input, "<") && strings.HasSuffix(input, ">") {
+		name := strings.ToLower(input[1 : len(input)-1])
+		switch name {
+		case "bs", "backspace":
+			return tcell.NewEventKey(tcell.KeyBackspace, 0, tcell.ModNone), nil
+		case "cr", "enter":
+			return tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), nil
+		case "down":
+			return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil
+		case "esc":
+			return tcell.NewEventKey(tcell.KeyEsc, 0, tcell.ModNone), nil
+		case "space":
+			return tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone), nil
+		case "tab":
+			return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone), nil
+		case "up":
+			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil
+		}
+		if strings.HasPrefix(name, "c-") && len(name) == 3 {
+			c := name[2]
+			if c >= 'a' && c <= 'z' {
+				ctrlKey := tcell.KeyCtrlA + tcell.Key(c-'a')
+				return tcell.NewEventKey(ctrlKey, 0, tcell.ModNone), nil
+			}
+		}
+		if strings.HasPrefix(name, "f") && len(name) == 2 {
+			c := name[1]
+			if c >= '1' && c <= '9' {
+				ctrlKey := tcell.KeyF1 + tcell.Key(c-'1')
+				return tcell.NewEventKey(ctrlKey, 0, tcell.ModNone), nil
+			}
+		}
+		return nil, fmt.Errorf("unknown key: %s", input)
+	}
+	if len([]rune(input)) == 1 {
+		return tcell.NewEventKey(tcell.KeyRune, []rune(input)[0], tcell.ModNone), nil
+	}
+	return nil, fmt.Errorf("invalid key format: %s", input)
 }

@@ -108,6 +108,9 @@ func (ui *UI) copySelectedStreamToClipboard(method OpenMethod) error {
 
 func (ui *UI) getSelectedStreamData() (sc.StreamData, error) {
 	listIdx := ui.mainPage.focusedList.GetCurrentItem()
+	if listIdx >= ui.mainPage.focusedList.GetItemCount() {
+		return nil, errors.New("current selection out of bounds")
+	}
 	primaryText, _ := ui.mainPage.focusedList.GetItemText(listIdx)
 	switch ui.mainPage.focusedList {
 	case ui.mainPage.twitchList:
