@@ -39,6 +39,7 @@ var defaultMappings = map[string]string{
 	"R":       ":update | sync<CR>",
 	"U":       ":clear!<CR>",
 	"c":       ":open chat | quit<CR>",
+	"f":       ":global <Tab>",
 	"g":       ":normal g<CR>",
 	"j":       ":normal j<CR>",
 	"k":       ":normal k<CR>",
@@ -51,7 +52,9 @@ var defaultMappings = map[string]string{
 	"s":       ":open strims | quit<CR>",
 	"t":       ":set! strims | focus twitch<CR>",
 	"u":       ":clear<CR>",
+	"v":       ":vglobal <Tab>",
 	"w":       ":open homepage | quit<CR>",
+	"y":       ":copyurl ",
 	"z":       ":normal z<CR>",
 }
 

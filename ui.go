@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -275,6 +276,7 @@ func (ui *UI) commandLineCapture(event *tcell.EventKey) *tcell.EventKey {
 		}
 		cmdLine := ui.cmdRegistry.history[ui.cmdRegistry.histIndex]
 		ui.mainPage.commandLine.SetText(cmdLine)
+		ui.mainPage.commandLine.Autocomplete()
 		return nil
 	case tcell.KeyDown:
 		if len(ui.cmdRegistry.history) == 0 {
@@ -285,6 +287,7 @@ func (ui *UI) commandLineCapture(event *tcell.EventKey) *tcell.EventKey {
 		}
 		cmdLine := ui.cmdRegistry.history[ui.cmdRegistry.histIndex]
 		ui.mainPage.commandLine.SetText(cmdLine)
+		ui.mainPage.commandLine.Autocomplete()
 		return nil
 	case tcell.KeyCtrlP:
 		return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
@@ -298,10 +301,18 @@ func (ui *UI) commandLineCapture(event *tcell.EventKey) *tcell.EventKey {
 
 func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) bool {
 	if source == tview.AutocompletedEnter {
+		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
 		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
 		ui.execCommand(cmdLine)
 		return true
 	} else if source == tview.AutocompletedTab {
+		if cmdLine == ":global//d" || cmdLine == ":global//p" {
+			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+		} else if cmdLine == ":vglobal//d" || cmdLine == ":vglobal//p" {
+			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
+		}
 		ui.mainPage.commandLine.SetText(cmdLine)
 		return false
 	}
@@ -312,7 +323,11 @@ func (ui *UI) commandLineComplete(currentText string) []string {
 	if currentText == "" {
 		return nil
 	}
-	fields := strings.Split(currentText, " ")
+	if strings.Contains(currentText, "|") {
+		return nil
+	}
+	re := regexp.MustCompile(`[ /]`)
+	fields := re.Split(currentText, -1)
 	switch len(fields) {
 	case 1:
 		possibleCmds := ui.cmdRegistry.matchPossibleCommands(strings.TrimLeft(fields[0], ":"))

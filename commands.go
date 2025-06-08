@@ -85,9 +85,24 @@ var defaultCommands = []*Command{{
 		}
 	},
 }, {
+	Name:        "feedkey",
+	Description: "Send the {key} to the app",
+	Usage:       "fe[edkey[] {key}",
+	MinArgs:     1,
+	MaxArgs:     1,
+	Execute: func(ui *UI, args []string, bang bool) error {
+		key, err := parseMappingKey(args[0])
+		if err != nil {
+			return err
+		}
+		ui.app.SetFocus(ui.mainPage.focusedList)
+		ui.mainPage.focusedList.GetInputCapture()(key)
+		return nil
+	},
+}, {
 	Name:        "focus",
 	Description: "Focus the window for {list}",
-	Usage:       "f[ocus[] {list=twitch|strims|toggle}",
+	Usage:       "fo[cus[] {list=twitch|strims|toggle}",
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string) []string {
@@ -121,13 +136,10 @@ var defaultCommands = []*Command{{
 	Usage:       "g[lobal[][![]/{pattern}/{cmd}",
 	MinArgs:     1,
 	MaxArgs:     math.MaxInt,
+	Complete: func(ui *UI, s string) []string {
+		return []string{":global//d"}
+	},
 	OnType: func(ui *UI, args []string, bang bool) error {
-		if len(args) == 1 && args[0] == "/" {
-			ui.mainPage.commandLine.SetText(":global//d")
-			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
-			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
-			return nil
-		}
 		return applyFilterFromArg(ui, strings.Join(args, " "), bang, false)
 	},
 }, {
@@ -140,25 +152,27 @@ var defaultCommands = []*Command{{
 		possibleCmds := ui.cmdRegistry.matchPossibleCommands(s)
 		entries := make([]string, 0, len(possibleCmds))
 		for _, cmd := range possibleCmds {
-			entries = append(entries, ":help "+cmd.Name)
+			entries = append(entries, ":help :"+cmd.Name)
 		}
 		return entries
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
-		help := "--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n\n"
+		ui.mainPage.streamInfo.Clear()
+		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n\n"))
 		switch len(args) {
 		case 0:
-			help += ui.cmdRegistry.Help()
+			for _, cmd := range ui.cmdRegistry.commands {
+				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, ":[red]%s[-] - %s\n", cmd.Usage, cmd.Description))
+			}
 		case 1:
 			query := strings.TrimPrefix(args[0], ":")
 			for _, cmd := range ui.cmdRegistry.commands {
 				if !strings.HasPrefix(cmd.Name, query) {
 					continue
 				}
-				help += fmt.Sprintf(":[red]%s[-] - %s\n", cmd.Usage, cmd.Description)
+				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, ":[red]%s[-] - %s\n", cmd.Usage, cmd.Description))
 			}
 		}
-		ui.mainPage.streamInfo.SetText(help)
 		ui.mainPage.streamInfo.SetTitle("HELP")
 		return nil
 	},
@@ -167,7 +181,7 @@ var defaultCommands = []*Command{{
 	Description: "map {lhs} into {rhs}",
 	Usage:       "m[ap[] [lhs rhs[]",
 	MinArgs:     0,
-	MaxArgs:     2,
+	MaxArgs:     math.MaxInt,
 	Complete: func(u *UI, s string) []string {
 		methods := maps.Keys(u.mapRegistry.mappings)
 		matches := make([]string, 0, len(u.mapRegistry.mappings))
@@ -192,11 +206,11 @@ var defaultCommands = []*Command{{
 				}
 				mappings = append(mappings, fmt.Sprintf("[red]%s[-] - %s\n", lhs, rhs))
 			}
-		case 2:
+		default:
 			if err := validateMappingKey(args[0]); err != nil {
 				return err
 			}
-			ui.mapRegistry.mappings[args[0]] = args[1]
+			ui.mapRegistry.mappings[args[0]] = strings.Join(args[1:], " ")
 			return nil
 		}
 		sort.Strings(mappings)
@@ -410,27 +424,16 @@ var defaultCommands = []*Command{{
 	Usage:       "v[global[][![]/{pattern}/{cmd}",
 	MinArgs:     1,
 	MaxArgs:     math.MaxInt,
+	Complete: func(ui *UI, s string) []string {
+		return []string{":vglobal//d"}
+	},
 	OnType: func(ui *UI, args []string, bang bool) error {
-		if len(args) == 1 && args[0] == "/" {
-			ui.mainPage.commandLine.SetText(":vglobal//d")
-			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
-			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
-			return nil
-		}
 		return applyFilterFromArg(ui, strings.Join(args, " "), bang, true)
 	},
 }}
 
 func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{commands: defaultCommands}
-}
-
-func (r *CommandRegistry) Help() string {
-	lines := make([]string, 0, len(r.commands))
-	for _, cmd := range r.commands {
-		lines = append(lines, fmt.Sprintf(":[red]%s[-] - %s", cmd.Usage, cmd.Description))
-	}
-	return strings.Join(lines, "\n")
 }
 
 func (ui *UI) parseCommandChain(cmdLine string) {
@@ -448,6 +451,7 @@ func (ui *UI) parseCommandChain(cmdLine string) {
 		if i > 0 {
 			cmd = ":" + cmd
 		}
+
 		_ = ui.parseCommand(cmd)
 	}
 }
@@ -486,6 +490,7 @@ func (ui *UI) parseCommand(cmd string) error {
 func (ui *UI) execCommandChainCallback(key tcell.Key) {
 	if key == tcell.KeyEnter {
 		cmdLine := ui.mainPage.commandLine.GetText()
+		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
 		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
 		err := ui.execCommandChainSilent(cmdLine)
 		if err != nil {
@@ -497,16 +502,25 @@ func (ui *UI) execCommandChainCallback(key tcell.Key) {
 
 // Execute the command chain, either from a mapping or directly from commandline
 func (ui *UI) execCommandChain(cmdLine string) error {
-	cmdLine = strings.ToLower(cmdLine)
-	if !strings.HasSuffix(cmdLine, "<cr>") {
+	// Execute directly if has suffix <CR>
+	if strings.HasSuffix(cmdLine, "<CR>") {
+		cmdLine = strings.TrimSuffix(cmdLine, "<CR>")
 		ui.mainPage.commandLine.SetText(cmdLine)
-		ui.app.SetFocus(ui.mainPage.commandLine)
-		ui.mainPage.commandLine.Autocomplete()
-		return nil
+		return ui.execCommandChainSilent(cmdLine)
 	}
-	cmdLine = strings.TrimSuffix(cmdLine, "<cr>")
+	// Input partial command, accept autocomplete if has suffix <Tab>
+	var complete bool
+	if strings.HasSuffix(cmdLine, "<Tab>") {
+		cmdLine = strings.TrimSuffix(cmdLine, "<Tab>")
+		complete = true
+	}
 	ui.mainPage.commandLine.SetText(cmdLine)
-	return ui.execCommandChainSilent(cmdLine)
+	ui.app.SetFocus(ui.mainPage.commandLine)
+	ui.mainPage.commandLine.Autocomplete()
+	if complete {
+		ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+	}
+	return nil
 }
 
 func (ui *UI) execCommandChainSilent(cmdLine string) error {
@@ -591,10 +605,7 @@ func extractCmdName(text string) (name string, rest string) {
 }
 
 func applyFilterFromArg(ui *UI, arg string, bang bool, invertMatching bool) error {
-	re, err := regexp.Compile(`^\/([^\/]*)\/([dp])$`)
-	if err != nil {
-		return err
-	}
+	re := regexp.MustCompile(`^\/([^\/]*)\/([dp])$`)
 	matches := re.FindStringSubmatch(arg)
 	if len(matches) <= 2 {
 		return errors.New("No matches")

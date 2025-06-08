@@ -97,7 +97,7 @@ func (ui *UI) disableStrimsList() {
 
 func (ui *UI) matchStrimsListIndex(filter string) []int {
 	var ixs []int
-	re, err := regexp.Compile("(?i)" + filter)
+	re, err := regexp.Compile(`(?i)` + filter)
 	if err != nil {
 		for i := range ui.mainPage.streams.Strims.Data {
 			ixs = append(ixs, i)
