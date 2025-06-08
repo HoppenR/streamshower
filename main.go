@@ -15,6 +15,19 @@ const (
 	CacheFolder = "streamshower"
 )
 
+// TODO:
+//    - Separate streamchecker from streamserver
+//      - Support ~/.config/streamshower/rc for running mappings/commands on
+//        startup?
+// TODO:
+//    - Fix wrongfully detecting bangs inside regex patterns in `:g/re!gex/p`
+
+// BONUS:
+//    - Command `:silent {mapping}`
+//      - calls execCommandSilent `{mapping}`
+//    - Show last fetch info somewhere in bottom right?
+//      - Can split commandLine into a flexbox with two windows
+
 func main() {
 	background := flag.Bool(
 		"b",
