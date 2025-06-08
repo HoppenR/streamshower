@@ -270,12 +270,44 @@ func (ui *UI) setupMainPage() {
 	ui.mainPage.commandLine.SetFieldBackgroundColor(tcell.ColorBlack)
 	ui.mainPage.commandLine.SetChangedFunc(ui.parseCommandChain)
 	ui.mainPage.commandLine.SetFinishedFunc(ui.execCommandChainCallback)
-	ui.mainPage.commandLine.SetAutocompletedFunc(func(text string, index int, source int) bool {
+	ui.mainPage.commandLine.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyUp:
+			if len(ui.cmdRegistry.history) == 0 {
+				return nil
+			}
+			if ui.cmdRegistry.histIndex < len(ui.cmdRegistry.history)-1 {
+				ui.cmdRegistry.histIndex += 1
+			}
+			cmdLine := ui.cmdRegistry.history[ui.cmdRegistry.histIndex]
+			ui.mainPage.commandLine.SetText(cmdLine)
+			return nil
+		case tcell.KeyDown:
+			if len(ui.cmdRegistry.history) == 0 {
+				return nil
+			}
+			if ui.cmdRegistry.histIndex > 0 {
+				ui.cmdRegistry.histIndex -= 1
+			}
+			cmdLine := ui.cmdRegistry.history[ui.cmdRegistry.histIndex]
+			ui.mainPage.commandLine.SetText(cmdLine)
+			return nil
+		case tcell.KeyCtrlP:
+			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
+		case tcell.KeyCtrlN:
+			return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+		case tcell.KeyCtrlY:
+			return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+		}
+		return event
+	})
+	ui.mainPage.commandLine.SetAutocompletedFunc(func(cmdLine string, index int, source int) bool {
 		if source == tview.AutocompletedEnter {
-			ui.execCommand(text)
+			ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
+			ui.execCommand(cmdLine)
 			return true
 		} else if source == tview.AutocompletedTab {
-			ui.mainPage.commandLine.SetText(text)
+			ui.mainPage.commandLine.SetText(cmdLine)
 			return false
 		}
 		return false

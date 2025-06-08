@@ -23,7 +23,9 @@ type Command struct {
 }
 
 type CommandRegistry struct {
-	commands []*Command
+	commands  []*Command
+	history   []string
+	histIndex int
 }
 
 var defaultCommands = []*Command{{
@@ -344,6 +346,7 @@ func (ui *UI) parseCommand(cmd string) error {
 func (ui *UI) execCommandChainCallback(key tcell.Key) {
 	if key == tcell.KeyEnter {
 		cmdLine := ui.mainPage.commandLine.GetText()
+		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
 		err := ui.execCommandChainSilent(cmdLine)
 		if err != nil {
 			ui.mainPage.appStatusText.SetText(err.Error())
