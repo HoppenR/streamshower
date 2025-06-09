@@ -33,6 +33,8 @@ func encodeMappingKey(input *tcell.EventKey) string {
 		return "<Tab>"
 	case tcell.KeyUp:
 		return "<Up>"
+	case tcell.KeyRight:
+		return "<Right>"
 	}
 	if input.Key() >= tcell.KeyCtrlA && input.Key() <= tcell.KeyCtrlZ {
 		c := 'a' + rune(input.Key()-tcell.KeyCtrlA)
@@ -64,7 +66,10 @@ func parseMappingKey(input string) (*tcell.EventKey, error) {
 			return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone), nil
 		case "up":
 			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil
+		case "right":
+			return tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), nil
 		}
+		// TODO: Handle these with regex instead?
 		if strings.HasPrefix(name, "c-") && len(name) == 3 {
 			c := name[2]
 			if c >= 'a' && c <= 'z' {

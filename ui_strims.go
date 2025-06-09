@@ -20,57 +20,51 @@ func (m *MainPage) refreshStrimsList() {
 
 func (m *MainPage) updateStrimsList(filter string) {
 	m.strimsList.Clear()
-	ixs := m.matchStrimsListIndex(filter)
-	if ixs == nil {
+	m.strimsFilter.indexMapping = m.matchStrimsListIndex(filter)
+	if m.strimsFilter.indexMapping == nil {
 		m.strimsList.AddItem("", "", 0, nil)
 		return
 	}
-	for _, v := range ixs {
-		mainstr := m.streams.Strims.Data[v].Channel
-		color := "green"
+	for _, v := range m.strimsFilter.indexMapping {
+		mainstr := highlightSearch(m.streams.Strims.Data[v].Channel, m.lastSearch)
+		secColor := "green"
 		if m.streams.Strims.Data[v].Nsfw {
-			color = "red"
+			secColor = "red"
 		}
 		secstr := fmt.Sprintf(
 			" %-6d[%s:-:u]%s[-:-:-]",
 			m.streams.Strims.Data[v].Rustlers,
-			color,
+			secColor,
 			tview.Escape(m.streams.Strims.Data[v].Title),
 		)
 		m.strimsList.AddItem(mainstr, secstr, 0, nil)
 	}
 }
 
-func (m *MainPage) updateStrimsStreamInfo(ix int, pri, sec string, _ rune) {
-	var index int = -1
-	for i, v := range m.streams.Strims.Data {
-		if pri == v.Channel {
-			index = i
-			break
-		}
-	}
+func (m *MainPage) updateStrimsStreamInfo(tviewIx int, pri, sec string, _ rune) {
 	add := func(c string) {
 		m.streamInfo.Write([]byte(c))
 	}
 	m.streamInfo.Clear()
-	if index == -1 {
+	if m.strimsFilter.indexMapping == nil {
 		m.streamInfo.SetTitle("Stream Info")
 		add("No results")
-	} else {
-		selStream := m.streams.Strims.Data[index]
-		if selStream.Service == "m3u8" {
-			selStream.Title = selStream.URL
-		} else {
-			selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
-		}
-		m.streamInfo.SetTitle(selStream.Channel)
-		add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
-		add(fmt.Sprintf("[red]Rustlers[-]: %d [lightgray](%d afk)[-]\n", selStream.Rustlers, selStream.AfkRustlers))
-		add(fmt.Sprintf("[red]Service[-]: %s\n", selStream.Service))
-		add(fmt.Sprintf("[red]Viewers[-]: %v\n", selStream.Viewers))
-		add(fmt.Sprintf("[red]Live[-]: %v\n", selStream.Live))
-		add(fmt.Sprintf("[red]AFK[-]: %v\n", selStream.Afk))
+		return
 	}
+	ix := m.strimsFilter.indexMapping[tviewIx]
+	selStream := m.streams.Strims.Data[ix]
+	if selStream.Service == "m3u8" {
+		selStream.Title = selStream.URL
+	} else {
+		selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
+	}
+	m.streamInfo.SetTitle(selStream.Channel)
+	add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
+	add(fmt.Sprintf("[red]Rustlers[-]: %d [lightgray](%d afk)[-]\n", selStream.Rustlers, selStream.AfkRustlers))
+	add(fmt.Sprintf("[red]Service[-]: %s\n", selStream.Service))
+	add(fmt.Sprintf("[red]Viewers[-]: %v\n", selStream.Viewers))
+	add(fmt.Sprintf("[red]Live[-]: %v\n", selStream.Live))
+	add(fmt.Sprintf("[red]AFK[-]: %v\n", selStream.Afk))
 }
 
 func (ui *UI) toggleStrimsList() {
