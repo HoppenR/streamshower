@@ -68,7 +68,10 @@ func NewUI() *UI {
 			twitchList:    tview.NewList(),
 			twitchFilter:  &FilterInput{},
 			strimsFilter:  &FilterInput{},
-			streams:       new(ls.Streams),
+			streams: &ls.Streams{
+				Twitch: new(ls.TwitchStreams),
+				Strims: new(ls.StrimsStreams),
+			},
 			strimsVisible: true,
 		},
 		cmdRegistry:         NewCommandRegistry(),

@@ -69,7 +69,7 @@ func parseMappingKey(input string) (*tcell.EventKey, error) {
 		case "right":
 			return tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), nil
 		}
-		// TODO: Handle these with regex instead?
+		// TODO: Handle these with regex instead
 		if strings.HasPrefix(name, "c-") && len(name) == 3 {
 			c := name[2]
 			if c >= 'a' && c <= 'z' {

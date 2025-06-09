@@ -10,6 +10,7 @@ import (
 
 func (m *MainPage) refreshStrimsList() {
 	if m.focusedList != m.strimsList {
+		// TODO: return instead?
 		m.strimsList.SetChangedFunc(nil)
 		defer m.strimsList.SetChangedFunc(m.updateStrimsStreamInfo)
 	}

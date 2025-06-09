@@ -54,14 +54,14 @@ func (ui *UI) commandLineComplete(currentText string) []string {
 		return entries
 	case 2:
 		cmd := strings.TrimPrefix(fields[0], ":")
-		namepart, _, _ := parseCommandParts(cmd)
+		namepart, _, bang := parseCommandParts(cmd)
 		if namepart == "" {
 			return nil
 		}
 		possibleCmds := ui.cmdRegistry.matchPossibleCommands(namepart)
 		if len(possibleCmds) == 1 {
 			if possibleCmds[0].Complete != nil {
-				return possibleCmds[0].Complete(ui, fields[1])
+				return possibleCmds[0].Complete(ui, fields[1], bang)
 			}
 		}
 	}
