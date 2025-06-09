@@ -54,11 +54,14 @@ func (ui *UI) onTypeCommand(cmd string) error {
 				}
 			}
 		}
-	} else if strings.HasPrefix(cmd, "/") && len(cmd) > 1 {
+		return nil
+	} else if strings.HasPrefix(cmd, "/") {
 		ui.mainPage.lastSearch = strings.TrimPrefix(cmd, "/")
-	} else if strings.HasPrefix(cmd, "?") && len(cmd) > 1 {
+	} else if strings.HasPrefix(cmd, "?") {
 		ui.mainPage.lastSearch = strings.TrimPrefix(cmd, "?")
 	}
+	ui.mainPage.refreshTwitchList()
+	ui.mainPage.refreshStrimsList()
 	return nil
 }
 
@@ -81,6 +84,8 @@ func (ui *UI) execCommandChainMapping(cmdLine string) error {
 	// Execute directly if has suffix <CR>
 	if strings.HasSuffix(cmdLine, "<CR>") {
 		cmdLine = strings.TrimSuffix(cmdLine, "<CR>")
+		ui.mainPage.commandLine.SetChangedFunc(nil)
+		defer ui.mainPage.commandLine.SetChangedFunc(ui.onTypeCommandChain)
 		ui.mainPage.commandLine.SetText(cmdLine)
 		return ui.execCommandChainSilent(cmdLine)
 	}
@@ -140,7 +145,7 @@ func (ui *UI) execCommand(cmdLine string) error {
 			if len(args) < possible[0].MinArgs {
 				return fmt.Errorf("Argument required for command: %s", possible[0].Name)
 			} else if len(args) > possible[0].MaxArgs {
-				return fmt.Errorf(fmt.Sprintf("Trailing characters: %s", strings.Join(args, "")))
+				return fmt.Errorf("Trailing characters: %s", strings.Join(args, ""))
 			}
 			if possible[0].Execute != nil {
 				err := possible[0].Execute(ui, args, bang)
@@ -219,7 +224,7 @@ func parseCommandParts(input string) (string, []string, bool) {
 	var args []string
 	for _, v := range parts {
 		if strings.Contains(v, "!") {
-			for _, x := range strings.Split(v, "!") {
+			for x := range strings.SplitSeq(v, "!") {
 				if len(x) > 0 {
 					args = append(args, x)
 				}
@@ -230,4 +235,17 @@ func parseCommandParts(input string) (string, []string, bool) {
 		}
 	}
 	return name, args, bang
+}
+
+func highlightSearch(text string, search string) string {
+	if search == "" {
+		return text
+	}
+	lowerText := strings.ToLower(text)
+	lowerSearch := strings.ToLower(search)
+	idx := strings.Index(lowerText, lowerSearch)
+	if idx == -1 {
+		return text
+	}
+	return text[:idx] + "[red]" + text[idx:idx+len(search)] + "[-]" + text[idx+len(search):]
 }

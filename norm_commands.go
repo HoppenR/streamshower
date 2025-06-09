@@ -27,6 +27,8 @@ func execNormCommand(ui *UI, args []string, bang bool) error {
 			ui.moveMid()
 		case 'z':
 			ui.redrawMid()
+		default:
+			return nil
 		}
 	case tcell.KeyCtrlE:
 		ui.redrawUp()
@@ -40,6 +42,8 @@ func execNormCommand(ui *UI, args []string, bang bool) error {
 		ui.moveDown()
 	case tcell.KeyUp, tcell.KeyCtrlP:
 		ui.moveUp()
+	default:
+		return nil
 	}
 	return nil
 }
@@ -148,11 +152,8 @@ func (ui *UI) searchNext() {
 	ui.mainPage.commandLine.SetText("/" + ui.mainPage.lastSearch)
 	for i := 1; i <= count; i++ {
 		index := (current + i) % count
-		primaryText, secondaryText := list.GetItemText(index)
+		primaryText, _ := list.GetItemText(index)
 		if strings.Contains(strings.ToLower(primaryText), strings.ToLower(ui.mainPage.lastSearch)) {
-			list.SetCurrentItem(index)
-			return
-		} else if strings.Contains(strings.ToLower(secondaryText), strings.ToLower(ui.mainPage.lastSearch)) {
 			list.SetCurrentItem(index)
 			return
 		}

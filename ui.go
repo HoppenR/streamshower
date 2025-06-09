@@ -42,8 +42,9 @@ type MainPage struct {
 }
 
 type FilterInput struct {
-	input    string
-	inverted bool
+	input        string
+	inverted     bool
+	indexMapping []int
 }
 
 func (ui *UI) SetAddress(address string) *UI {

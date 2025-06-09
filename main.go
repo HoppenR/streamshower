@@ -7,8 +7,6 @@ import (
 )
 
 // TODO:
-//    - Highlight matching text on search
-// TODO:
 //    - Support ~/.config/streamshower/rc for running mappings/commands on
 //      startup?
 // TODO:

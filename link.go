@@ -114,12 +114,12 @@ func (ui *UI) getSelectedStreamData() (ls.StreamData, error) {
 	primaryText, _ := ui.mainPage.focusedList.GetItemText(listIdx)
 	switch ui.mainPage.focusedList {
 	case ui.mainPage.twitchList:
-		ix := slices.IndexFunc(ui.mainPage.streams.Twitch.Data, func(sd ls.TwitchStreamData) bool {
-			return sd.UserName == primaryText
-		})
-		if ix != -1 {
-			return &ui.mainPage.streams.Twitch.Data[ix], nil
+		if ui.mainPage.twitchFilter.indexMapping == nil {
+			break
 		}
+		tviewIx := ui.mainPage.twitchList.GetCurrentItem()
+		ix := ui.mainPage.twitchFilter.indexMapping[tviewIx]
+		return &ui.mainPage.streams.Twitch.Data[ix], nil
 	case ui.mainPage.strimsList:
 		ix := slices.IndexFunc(ui.mainPage.streams.Strims.Data, func(sd ls.StrimsStreamData) bool {
 			return sd.Channel == primaryText

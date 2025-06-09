@@ -22,13 +22,13 @@ func (m *MainPage) refreshTwitchList() {
 
 func (m *MainPage) updateTwitchList(filter string) {
 	m.twitchList.Clear()
-	ixs := m.matchTwitchListIndex(filter)
-	if ixs == nil {
+	m.twitchFilter.indexMapping = m.matchTwitchListIndex(filter)
+	if m.twitchFilter.indexMapping == nil {
 		m.twitchList.AddItem("", "", 0, nil)
 		return
 	}
-	for _, v := range ixs {
-		mainstr := m.streams.Twitch.Data[v].UserName
+	for _, v := range m.twitchFilter.indexMapping {
+		mainstr := highlightSearch(m.streams.Twitch.Data[v].UserName, m.lastSearch)
 		secstr := fmt.Sprintf(
 			" %-6d[green:-:u]%s[-:-:-]",
 			m.streams.Twitch.Data[v].ViewerCount,
@@ -38,44 +38,37 @@ func (m *MainPage) updateTwitchList(filter string) {
 	}
 }
 
-func (m *MainPage) updateTwitchStreamInfo(ix int, pri, sec string, _ rune) {
-	var index int = -1
-	for i, v := range m.streams.Twitch.Data {
-		if pri == v.UserName {
-			index = i
-			break
-		}
-	}
+func (m *MainPage) updateTwitchStreamInfo(tviewIx int, pri, sec string, _ rune) {
 	add := func(c string) {
 		m.streamInfo.Write([]byte(c))
 	}
-
 	m.streamInfo.Clear()
-	if index == -1 {
+	if m.twitchFilter.indexMapping == nil {
 		m.streamInfo.SetTitle("Stream Info")
 		add("No results")
-	} else {
-		selStream := m.streams.Twitch.Data[index]
-		startLocal := selStream.StartedAt.Local()
-		if selStream.GameName == "" {
-			selStream.GameName = "[::d]None[::-]"
-		}
-		selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
-		m.streamInfo.SetTitle(selStream.UserName)
-		add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
-		add(fmt.Sprintf("[red]Viewers[-]: %d\n", selStream.ViewerCount))
-		add(fmt.Sprintf("[red]Game[-]: %s\n", selStream.GameName))
-		add(fmt.Sprintf(
-			"[red]Started At[-]: %2.2d:%2.2d [lightgray](%.0fd %.0fh %0.fm ago)[-]\n",
-			startLocal.Hour(),
-			startLocal.Minute(),
-			math.Floor(time.Since(startLocal).Hours()/24),
-			math.Mod(math.Floor(time.Since(startLocal).Hours()), 24),
-			math.Mod(math.Floor(time.Since(startLocal).Minutes()), 60)),
-		)
-		add(fmt.Sprintf("[red]Language[-]: %s\n", selStream.Language))
-		add(fmt.Sprintf("[red]Type[-]: %s\n", selStream.Type))
+		return
 	}
+	ix := m.twitchFilter.indexMapping[tviewIx]
+	selStream := m.streams.Twitch.Data[ix]
+	startLocal := selStream.StartedAt.Local()
+	if selStream.GameName == "" {
+		selStream.GameName = "[::d]None[::-]"
+	}
+	selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
+	m.streamInfo.SetTitle(selStream.UserName)
+	add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
+	add(fmt.Sprintf("[red]Viewers[-]: %d\n", selStream.ViewerCount))
+	add(fmt.Sprintf("[red]Game[-]: %s\n", selStream.GameName))
+	add(fmt.Sprintf(
+		"[red]Started At[-]: %2.2d:%2.2d [lightgray](%.0fd %.0fh %0.fm ago)[-]\n",
+		startLocal.Hour(),
+		startLocal.Minute(),
+		math.Floor(time.Since(startLocal).Hours()/24),
+		math.Mod(math.Floor(time.Since(startLocal).Hours()), 24),
+		math.Mod(math.Floor(time.Since(startLocal).Minutes()), 60)),
+	)
+	add(fmt.Sprintf("[red]Language[-]: %s\n", selStream.Language))
+	add(fmt.Sprintf("[red]Type[-]: %s\n", selStream.Type))
 }
 
 func (m *MainPage) matchTwitchListIndex(filter string) []int {
