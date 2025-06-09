@@ -21,7 +21,7 @@ type Command struct {
 	Usage       string
 	Execute     func(*UI, []string, bool) error
 	OnType      func(*UI, []string, bool) error
-	Complete    func(*UI, string) []string
+	Complete    func(*UI, string, bool) []string
 	MinArgs     int
 	MaxArgs     int
 }
@@ -58,7 +58,7 @@ var defaultCommands = []*Command{{
 	Usage:       "co[pyurl[] {method}",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(u *UI, s string) []string {
+	Complete: func(u *UI, s string, bang bool) []string {
 		methods := []string{"embed", "homepage", "mpv", "strims", "chat"}
 		matches := make([]string, 0, len(methods))
 		for _, method := range methods {
@@ -105,7 +105,7 @@ var defaultCommands = []*Command{{
 	Usage:       "fo[cus[] {list=twitch|strims|toggle}",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(ui *UI, s string) []string {
+	Complete: func(ui *UI, s string, bang bool) []string {
 		lists := []string{"twitch", "strims", "toggle"}
 		entries := make([]string, 0, len(lists))
 		for _, list := range lists {
@@ -136,7 +136,7 @@ var defaultCommands = []*Command{{
 	Usage:       "g[lobal[][![]/{pattern}/{cmd}",
 	MinArgs:     1,
 	MaxArgs:     math.MaxInt,
-	Complete: func(ui *UI, s string) []string {
+	Complete: func(ui *UI, s string, bang bool) []string {
 		return []string{":global//d"}
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {
@@ -148,7 +148,7 @@ var defaultCommands = []*Command{{
 	Usage:       "h[elp[] [subject[]",
 	MinArgs:     0,
 	MaxArgs:     1,
-	Complete: func(ui *UI, s string) []string {
+	Complete: func(ui *UI, s string, bang bool) []string {
 		possibleCmds := ui.cmdRegistry.matchPossibleCommands(s)
 		entries := make([]string, 0, len(possibleCmds))
 		for _, cmd := range possibleCmds {
@@ -182,7 +182,7 @@ var defaultCommands = []*Command{{
 	Usage:       "m[ap[] [lhs rhs[]",
 	MinArgs:     0,
 	MaxArgs:     math.MaxInt,
-	Complete: func(u *UI, s string) []string {
+	Complete: func(u *UI, s string, bang bool) []string {
 		methods := maps.Keys(u.mapRegistry.mappings)
 		matches := make([]string, 0, len(u.mapRegistry.mappings))
 		for method := range methods {
@@ -231,7 +231,7 @@ var defaultCommands = []*Command{{
 	Usage:       "n[ormal[] {command}",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(u *UI, s string) []string {
+	Complete: func(u *UI, s string, bang bool) []string {
 		methods := []string{"G", "g", "j", "k", "M", "z", "<C-e>", "<C-y>", "<C-u>", "<C-d>", "<C-n>", "<C-p>", "<Down>", "<Up>"}
 		matches := make([]string, 0, len(methods))
 		for _, method := range methods {
@@ -248,7 +248,7 @@ var defaultCommands = []*Command{{
 	Usage:       "o[pen[] {method}",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(u *UI, s string) []string {
+	Complete: func(u *UI, s string, bang bool) []string {
 		methods := []string{"embed", "homepage", "mpv", "strims", "chat"}
 		matches := make([]string, 0, len(methods))
 		for _, method := range methods {
@@ -280,7 +280,7 @@ var defaultCommands = []*Command{{
 	Usage:       "sc[rollinfo[] {direction}",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(u *UI, s string) []string {
+	Complete: func(u *UI, s string, bang bool) []string {
 		methods := []string{"up", "down"}
 		matches := make([]string, 0, len(methods))
 		for _, method := range methods {
@@ -318,20 +318,25 @@ var defaultCommands = []*Command{{
 }, {
 	Name:        "set",
 	Description: "Set [option[] or [no{option}[], ! toggles the value. Available options: strims",
-	Usage:       "se[t[] [option[![][]",
+	Usage:       "se[t[][![] [option[]",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(ui *UI, s string) []string {
+	Complete: func(ui *UI, s string, bang bool) []string {
 		options := []string{"strims"}
-		cmdPfx := ":set "
+		var cmdPfx strings.Builder
+		cmdPfx.WriteString(":set")
+		if bang {
+			cmdPfx.WriteString("!")
+		}
+		cmdPfx.WriteString(" ")
 		if strings.HasPrefix(s, "no") {
-			cmdPfx += "no"
+			cmdPfx.WriteString("no")
 			s = strings.TrimPrefix(s, "no")
 		}
 		matches := make([]string, 0, len(options))
 		for _, opt := range options {
 			if strings.HasPrefix(opt, s) {
-				matches = append(matches, cmdPfx+opt)
+				matches = append(matches, cmdPfx.String()+opt)
 			}
 		}
 		return matches
@@ -390,7 +395,7 @@ var defaultCommands = []*Command{{
 	Usage:       "v[global[][![]/{pattern}/{cmd}",
 	MinArgs:     1,
 	MaxArgs:     math.MaxInt,
-	Complete: func(ui *UI, s string) []string {
+	Complete: func(ui *UI, s string, bang bool) []string {
 		return []string{":vglobal//d"}
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {

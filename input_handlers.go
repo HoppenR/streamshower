@@ -57,24 +57,3 @@ func (ui *UI) commandLineInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	}
 	return event
 }
-
-func (ui *UI) streamInfoInputHandler(event *tcell.EventKey) *tcell.EventKey {
-	switch event.Key() {
-	case tcell.KeyRune:
-		switch event.Rune() {
-		case 'i', 'q':
-			ui.mainPage.con.ResizeItem(ui.mainPage.streamsCon, 0, 1)
-			ui.app.SetFocus(ui.mainPage.focusedList)
-			return nil
-			// case 'u':
-			// 	data, err := ui.getSelectedStreamData()
-			// 	if err != nil {
-			// 		return nil
-			// 	}
-			// 	if data.IsFollowed() {
-			// 		sc.UnfollowStream(data)
-			// 	}
-		}
-	}
-	return event
-}

@@ -66,13 +66,6 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		ui.mainPage.streams = streams
 
 		ui.app.QueueUpdate(func() {
-			if ui.mainPage.streams.Strims.Len() == 0 {
-				ui.app.SetFocus(ui.mainPage.twitchList)
-				ui.mainPage.focusedList = ui.mainPage.twitchList
-				ui.disableStrimsList()
-			} else {
-				ui.enableStrimsList()
-			}
 			ui.mainPage.refreshTwitchList()
 			ui.mainPage.refreshStrimsList()
 		})

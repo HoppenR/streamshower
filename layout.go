@@ -9,6 +9,7 @@ import (
 )
 
 func (ui *UI) setupMainPage() {
+	ui.app.EnableMouse(true)
 	ui.mainPage.con.AddItem(ui.mainPage.streamsCon, 0, 1, true)
 	ui.mainPage.con.AddItem(ui.mainPage.infoCon, 0, 2, false)
 	ui.mainPage.con.SetDirection(tview.FlexColumn)
@@ -46,7 +47,6 @@ func (ui *UI) setupMainPage() {
 	ui.mainPage.infoCon.AddItem(ui.mainPage.streamInfo, 0, 1, false)
 	ui.mainPage.streamInfo.SetBackgroundColor(tcell.ColorDefault)
 	ui.mainPage.streamInfo.SetBorder(true)
-	ui.mainPage.streamInfo.SetInputCapture(ui.streamInfoInputHandler)
 	ui.mainPage.streamInfo.SetDynamicColors(true)
 	ui.mainPage.streamInfo.SetTitle("Stream Info")
 	// CommandRow

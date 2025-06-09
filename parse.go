@@ -222,6 +222,8 @@ func parseCommandParts(input string) (string, []string, bool) {
 	rest = strings.TrimSpace(rest)
 	parts := strings.Fields(rest)
 	var args []string
+	// TODO: Parse ! more intelligently,
+	//       i.e don't detect in the middle of a regex - `:g/re!gex/p`
 	for _, v := range parts {
 		if strings.Contains(v, "!") {
 			for x := range strings.SplitSeq(v, "!") {
