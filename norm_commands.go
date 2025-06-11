@@ -3,50 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
-
-	"github.com/gdamore/tcell/v2"
 )
-
-func execNormCommand(ui *UI, args []string, bang bool) error {
-	key, err := parseMappingKey(args[0])
-	if err != nil {
-		return err
-	}
-	switch key.Key() {
-	case tcell.KeyRune:
-		switch key.Rune() {
-		case 'G':
-			ui.moveBot()
-		case 'g':
-			ui.moveTop()
-		case 'j':
-			ui.moveDown()
-		case 'k':
-			ui.moveUp()
-		case 'M':
-			ui.moveMid()
-		case 'z':
-			ui.redrawMid()
-		default:
-			return nil
-		}
-	case tcell.KeyCtrlE:
-		ui.redrawUp()
-	case tcell.KeyCtrlY:
-		ui.redrawDown()
-	case tcell.KeyCtrlU:
-		ui.movePgUp()
-	case tcell.KeyCtrlD:
-		ui.movePgDown()
-	case tcell.KeyDown, tcell.KeyCtrlN:
-		ui.moveDown()
-	case tcell.KeyUp, tcell.KeyCtrlP:
-		ui.moveUp()
-	default:
-		return nil
-	}
-	return nil
-}
 
 func (ui *UI) moveUp() {
 	listIdx := ui.mainPage.focusedList.GetCurrentItem()

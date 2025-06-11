@@ -6,16 +6,17 @@ import (
 	"maps"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 )
 
 type CommandRegistry struct {
-	commands  []*Command
+	commands  []*ExCommand
 	history   []string
 	histIndex int
 }
 
-type Command struct {
+type ExCommand struct {
 	Name        string
 	Description string
 	Usage       string
@@ -30,32 +31,10 @@ func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{commands: defaultCommands}
 }
 
-var defaultCommands = []*Command{{
-	Name:        "clear",
-	Description: "Clear filter, ! clears filter for all lists",
-	Usage:       "cl[ear[][![]",
-	MinArgs:     0,
-	MaxArgs:     0,
-	Execute: func(ui *UI, args []string, bang bool) error {
-		var filters []*FilterInput
-		if ui.mainPage.focusedList == ui.mainPage.twitchList || bang {
-			filters = append(filters, ui.mainPage.twitchFilter)
-		}
-		if ui.mainPage.focusedList == ui.mainPage.strimsList || bang {
-			filters = append(filters, ui.mainPage.strimsFilter)
-		}
-		for _, f := range filters {
-			f.inverted = false
-			f.input = ""
-		}
-		ui.mainPage.refreshTwitchList()
-		ui.mainPage.refreshStrimsList()
-		return nil
-	},
-}, {
+var defaultCommands = []*ExCommand{{
 	Name:        "copyurl",
 	Description: "Copy url of stream by the chosen method",
-	Usage:       "co[pyurl[] {method}",
+	Usage:       "c[opyurl[] {method}",
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(u *UI, s string, bang bool) []string {
@@ -83,21 +62,6 @@ var defaultCommands = []*Command{{
 		default:
 			return fmt.Errorf("unsupported method")
 		}
-	},
-}, {
-	Name:        "feedkey",
-	Description: "Send the {key} to the app",
-	Usage:       "fe[edkey[] {key}",
-	MinArgs:     1,
-	MaxArgs:     1,
-	Execute: func(ui *UI, args []string, bang bool) error {
-		key, err := parseMappingKey(args[0])
-		if err != nil {
-			return err
-		}
-		ui.app.SetFocus(ui.mainPage.focusedList)
-		ui.mainPage.focusedList.GetInputCapture()(key)
-		return nil
 	},
 }, {
 	Name:        "focus",
@@ -226,22 +190,17 @@ var defaultCommands = []*Command{{
 		return nil
 	},
 }, {
-	Name:        "normal",
-	Description: "Execute normal mode {command}",
-	Usage:       "n[ormal[] {command}",
-	MinArgs:     1,
-	MaxArgs:     1,
-	Complete: func(u *UI, s string, bang bool) []string {
-		methods := []string{"G", "g", "j", "k", "M", "z", "<C-e>", "<C-y>", "<C-u>", "<C-d>", "<C-n>", "<C-p>", "<Down>", "<Up>"}
-		matches := make([]string, 0, len(methods))
-		for _, method := range methods {
-			if strings.HasPrefix(method, s) {
-				matches = append(matches, ":normal "+method)
-			}
-		}
-		return matches
+	Name:        "nohlsearch",
+	Description: "Stop higlighting search",
+	Usage:       "n[ohlsearch[]",
+	MinArgs:     0,
+	MaxArgs:     0,
+	Execute: func(ui *UI, s []string, b bool) error {
+		ui.mainPage.lastSearch = ""
+		ui.mainPage.refreshTwitchList()
+		ui.mainPage.refreshStrimsList()
+		return nil
 	},
-	Execute: execNormCommand,
 }, {
 	Name:        "open",
 	Description: "Open stream with the chosen method",
@@ -302,6 +261,20 @@ var defaultCommands = []*Command{{
 		return nil
 	},
 }, {
+	Name:        "resize",
+	Description: "Resize current window to {size} (default: 1)",
+	Usage:       "r[esize[] {size}",
+	MinArgs:     1,
+	MaxArgs:     1,
+	Execute: func(ui *UI, args []string, bang bool) error {
+		n, err := strconv.Atoi(args[0])
+		if err != nil {
+			return err
+		}
+		ui.mainPage.streamsCon.ResizeItem(ui.mainPage.focusedList, 0, n)
+		return nil
+	},
+}, {
 	Name:        "sync",
 	Description: "Syncronize all streams on the client side",
 	Usage:       "sy[nc[]",
@@ -322,7 +295,7 @@ var defaultCommands = []*Command{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		options := []string{"strims"}
+		options := []string{"strims", "winopen"}
 		var cmdPfx strings.Builder
 		cmdPfx.WriteString(":set")
 		if bang {
@@ -361,6 +334,14 @@ var defaultCommands = []*Command{{
 				}
 				ui.mainPage.refreshTwitchList()
 				ui.mainPage.refreshStrimsList()
+			case "winopen":
+				if bang {
+					ui.mainPage.winopen = !ui.mainPage.winopen
+				} else if prefixno {
+					ui.mainPage.winopen = false
+				} else {
+					ui.mainPage.winopen = true
+				}
 			}
 		}
 		return nil
@@ -376,9 +357,27 @@ var defaultCommands = []*Command{{
 		return nil
 	},
 }, {
+	Name:        "undo",
+	Description: "Undo filters",
+	Usage:       "un[do[]",
+	MinArgs:     0,
+	MaxArgs:     0,
+	Execute: func(ui *UI, args []string, bang bool) error {
+		if ui.mainPage.focusedList == ui.mainPage.twitchList {
+			ui.mainPage.twitchFilter.inverted = false
+			ui.mainPage.twitchFilter.input = ""
+			ui.mainPage.refreshTwitchList()
+		} else if ui.mainPage.focusedList == ui.mainPage.strimsList {
+			ui.mainPage.strimsFilter.inverted = false
+			ui.mainPage.strimsFilter.input = ""
+			ui.mainPage.refreshStrimsList()
+		}
+		return nil
+	},
+}, {
 	Name:        "update",
 	Description: "Update all streams on the connected server",
-	Usage:       "u[pdate[][![]",
+	Usage:       "up[date[]",
 	MinArgs:     0,
 	MaxArgs:     0,
 	Execute: func(ui *UI, args []string, bang bool) error {
@@ -400,5 +399,24 @@ var defaultCommands = []*Command{{
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {
 		return applyFilterFromArg(ui.mainPage, strings.Join(args, " "), bang, true)
+	},
+}, {
+	Name:        "windo",
+	Description: "execute {command} once for each list",
+	Usage:       "w[indo[] {cmd}",
+	MinArgs:     1,
+	MaxArgs:     1,
+	Execute: func(ui *UI, args []string, bang bool) error {
+		ui.mainPage.focusedList = ui.mainPage.twitchList
+		err := ui.execCommand(":" + strings.Join(args, ""))
+		if err != nil {
+			return err
+		}
+		ui.mainPage.focusedList = ui.mainPage.strimsList
+		err = ui.execCommand(":" + strings.Join(args, ""))
+		if err != nil {
+			return nil
+		}
+		return nil
 	},
 }}

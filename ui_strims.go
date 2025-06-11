@@ -9,8 +9,7 @@ import (
 )
 
 func (m *MainPage) refreshStrimsList() {
-	if m.focusedList != m.strimsList {
-		// TODO: return instead?
+	if m.strimsList.HasFocus() {
 		m.strimsList.SetChangedFunc(nil)
 		defer m.strimsList.SetChangedFunc(m.updateStrimsStreamInfo)
 	}
@@ -54,13 +53,15 @@ func (m *MainPage) updateStrimsStreamInfo(tviewIx int, pri, sec string, _ rune) 
 	}
 	ix := m.strimsFilter.indexMapping[tviewIx]
 	selStream := m.streams.Strims.Data[ix]
+	var title string
 	if selStream.Service == "m3u8" {
-		selStream.Title = selStream.URL
+		title = selStream.URL
 	} else {
-		selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
+		title = strings.ReplaceAll(selStream.Title, "\n", " ")
 	}
+	title = tview.Escape(title)
 	m.streamInfo.SetTitle(selStream.Channel)
-	add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
+	add(fmt.Sprintf("[red]Title[-]: %s\n", title))
 	add(fmt.Sprintf("[red]Rustlers[-]: %d [lightgray](%d afk)[-]\n", selStream.Rustlers, selStream.AfkRustlers))
 	add(fmt.Sprintf("[red]Service[-]: %s\n", selStream.Service))
 	add(fmt.Sprintf("[red]Viewers[-]: %v\n", selStream.Viewers))
@@ -69,7 +70,7 @@ func (m *MainPage) updateStrimsStreamInfo(tviewIx int, pri, sec string, _ rune) 
 }
 
 func (ui *UI) toggleStrimsList() {
-	if ui.mainPage.strimsVisible {
+	if ui.mainPage.strims {
 		ui.disableStrimsList()
 	} else {
 		ui.enableStrimsList()
@@ -77,16 +78,16 @@ func (ui *UI) toggleStrimsList() {
 }
 
 func (ui *UI) enableStrimsList() {
-	if !ui.mainPage.strimsVisible {
+	if !ui.mainPage.strims {
 		ui.mainPage.streamsCon.AddItem(ui.mainPage.strimsList, 0, 2, false)
-		ui.mainPage.strimsVisible = true
+		ui.mainPage.strims = true
 	}
 }
 
 func (ui *UI) disableStrimsList() {
-	if ui.mainPage.strimsVisible {
+	if ui.mainPage.strims {
 		ui.mainPage.streamsCon.RemoveItem(ui.mainPage.strimsList)
-		ui.mainPage.strimsVisible = false
+		ui.mainPage.strims = false
 	}
 }
 
