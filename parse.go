@@ -12,7 +12,7 @@ import (
 
 func (ui *UI) onTypeCommandChain(cmdLine string) {
 	if cmdLine == "" {
-		ui.app.SetFocus(ui.mainPage.focusedList)
+		ui.app.SetFocus(ui.mainPage.streamsCon)
 		return
 	}
 	commands := strings.Split(cmdLine, "|")
@@ -43,9 +43,9 @@ func (ui *UI) onTypeCommand(cmd string) error {
 		switch len(possible) {
 		case 1:
 			if len(args) < possible[0].MinArgs {
-				return fmt.Errorf("Argument required for command: %s", possible[0].Name)
+				return nil
 			} else if len(args) > possible[0].MaxArgs {
-				return fmt.Errorf("Trailing characters: %s", strings.Join(args, ""))
+				return nil
 			}
 			if possible[0].OnType != nil {
 				err := possible[0].OnType(ui, args, bang)
@@ -69,8 +69,8 @@ func (ui *UI) onTypeCommand(cmd string) error {
 func (ui *UI) execCommandChainCallback(key tcell.Key) {
 	if key == tcell.KeyEnter {
 		cmdLine := ui.mainPage.commandLine.GetText()
-		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
 		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
+		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
 		err := ui.execCommandChainSilent(cmdLine)
 		if err != nil {
 			ui.mainPage.appStatusText.SetText(err.Error())
@@ -80,26 +80,13 @@ func (ui *UI) execCommandChainCallback(key tcell.Key) {
 }
 
 // Execute the command chain from a mapping
-func (ui *UI) execCommandChainMapping(cmdLine string) error {
-	// Execute directly if has suffix <CR>
-	if strings.HasSuffix(cmdLine, "<CR>") {
-		cmdLine = strings.TrimSuffix(cmdLine, "<CR>")
-		ui.mainPage.commandLine.SetChangedFunc(nil)
-		defer ui.mainPage.commandLine.SetChangedFunc(ui.onTypeCommandChain)
-		ui.mainPage.commandLine.SetText(cmdLine)
-		return ui.execCommandChainSilent(cmdLine)
-	}
-	// Input partial command, accept autocomplete if has suffix <Tab>
-	var complete bool
-	if strings.HasSuffix(cmdLine, "<Tab>") {
-		cmdLine = strings.TrimSuffix(cmdLine, "<Tab>")
-		complete = true
-	}
-	ui.mainPage.commandLine.SetText(cmdLine)
-	ui.app.SetFocus(ui.mainPage.commandLine)
-	ui.mainPage.commandLine.Autocomplete()
-	if complete {
-		ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone))
+func (ui *UI) execCommandChainMapping(keyStrings []Mapping) error {
+	for _, mapping := range keyStrings {
+		k, err := parseMappingKey(mapping.Key)
+		if err != nil {
+			return err
+		}
+		ui.app.QueueEvent(k)
 	}
 	return nil
 }
@@ -145,7 +132,7 @@ func (ui *UI) execCommand(cmdLine string) error {
 			if len(args) < possible[0].MinArgs {
 				return fmt.Errorf("Argument required for command: %s", possible[0].Name)
 			} else if len(args) > possible[0].MaxArgs {
-				return fmt.Errorf("Trailing characters: %s", strings.Join(args, ""))
+				return fmt.Errorf("Trailing characters: %s", strings.Join(args, " "))
 			}
 			if possible[0].Execute != nil {
 				err := possible[0].Execute(ui, args, bang)
@@ -205,8 +192,8 @@ func applyFilterFromArg(m *MainPage, arg string, bang bool, invertMatching bool)
 	return nil
 }
 
-func (r *CommandRegistry) matchPossibleCommands(name string) []*Command {
-	possible := []*Command{}
+func (r *CommandRegistry) matchPossibleCommands(name string) []*ExCommand {
+	possible := []*ExCommand{}
 	for _, cmd := range r.commands {
 		if strings.HasPrefix(cmd.Name, name) {
 			possible = append(possible, cmd)
@@ -220,22 +207,15 @@ func parseCommandParts(input string) (string, []string, bool) {
 	name, rest := extractCmdName(cmdLine)
 	bang := false
 	rest = strings.TrimSpace(rest)
-	parts := strings.Fields(rest)
-	var args []string
-	// TODO: Parse ! more intelligently,
-	//       i.e don't detect in the middle of a regex - `:g/re!gex/p`
-	for _, v := range parts {
-		if strings.Contains(v, "!") {
-			for x := range strings.SplitSeq(v, "!") {
-				if len(x) > 0 {
-					args = append(args, x)
-				}
-			}
-			bang = true
-		} else if len(v) != 0 {
-			args = append(args, v)
-		}
+	if strings.HasPrefix(rest, "!") {
+		bang = true
+		rest = strings.TrimPrefix(rest, "!")
 	}
+	if strings.HasSuffix(rest, "!") {
+		bang = true
+		rest = strings.TrimSuffix(rest, "!")
+	}
+	args := strings.Fields(rest)
 	return name, args, bang
 }
 

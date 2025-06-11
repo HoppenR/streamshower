@@ -11,7 +11,7 @@ import (
 )
 
 func (m *MainPage) refreshTwitchList() {
-	if m.focusedList != m.twitchList {
+	if m.twitchList.HasFocus() {
 		m.twitchList.SetChangedFunc(nil)
 		defer m.twitchList.SetChangedFunc(m.updateTwitchStreamInfo)
 	}
@@ -54,9 +54,10 @@ func (m *MainPage) updateTwitchStreamInfo(tviewIx int, pri, sec string, _ rune) 
 	if selStream.GameName == "" {
 		selStream.GameName = "[::d]None[::-]"
 	}
-	selStream.Title = strings.ReplaceAll(selStream.Title, "\n", " ")
+	title := strings.ReplaceAll(selStream.Title, "\n", " ")
+	title = tview.Escape(title)
 	m.streamInfo.SetTitle(selStream.UserName)
-	add(fmt.Sprintf("[red]Title[-]: %s\n", tview.Escape(selStream.Title)))
+	add(fmt.Sprintf("[red]Title[-]: %s\n", title))
 	add(fmt.Sprintf("[red]Viewers[-]: %d\n", selStream.ViewerCount))
 	add(fmt.Sprintf("[red]Game[-]: %s\n", selStream.GameName))
 	add(fmt.Sprintf(

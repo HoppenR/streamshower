@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"syscall"
@@ -80,11 +82,16 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 	if err != nil {
 		return err
 	}
-	program, err := ui.getProgram(method)
-	if err != nil {
-		return err
+	program := ui.getProgram(method)
+	var args []string
+	if ui.mainPage.winopen {
+		switch program {
+		case "brave", "chromium", "firefox", "google-chrome", "opera", "vivaldi":
+			args = append(args, "--new-window")
+		}
 	}
-	cmd := exec.Command(program, url.String())
+	args = append(args, url.String())
+	cmd := exec.Command(program, args...)
 	// Set the new process process group-ID to its process ID
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Pgid:    0,
@@ -195,15 +202,22 @@ func executeTemplateString(templateString string, data ls.StreamData) (string, e
 	return buffer.String(), err
 }
 
-func (ui *UI) getProgram(method OpenMethod) (string, error) {
+func (ui *UI) getProgram(method OpenMethod) string {
 	switch method {
 	case lnkOpenMpv:
-		return "mpv", nil
+		return "mpv"
 	default:
 		browser := os.Getenv("BROWSER")
 		if browser == "" {
-			return "", errors.New("set $BROWSER before opening links")
+			switch runtime.GOOS {
+			case "darwin":
+				return "open"
+			case "windows":
+				return "explorer"
+			default:
+				return "xdg-open"
+			}
 		}
-		return browser, nil
+		return filepath.Base(browser)
 	}
 }

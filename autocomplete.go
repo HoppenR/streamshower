@@ -9,16 +9,19 @@ import (
 )
 
 func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) bool {
+	if ui.mapDepth > 0 {
+		return false
+	}
 	if source == tview.AutocompletedEnter {
-		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
 		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
+		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
 		ui.mainPage.commandLine.SetText(cmdLine)
 		err := ui.execCommand(cmdLine)
 		if err != nil {
 			ui.mainPage.appStatusText.SetText(err.Error())
 			return false
 		}
-		ui.app.SetFocus(ui.mainPage.focusedList)
+		ui.app.SetFocus(ui.mainPage.streamsCon)
 		return true
 	} else if source == tview.AutocompletedTab {
 		// Move cursor into the regex pattern if completion is :v or :g
@@ -36,6 +39,9 @@ func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) boo
 }
 
 func (ui *UI) commandLineComplete(currentText string) []string {
+	if ui.mapDepth > 0 {
+		return nil
+	}
 	if currentText == "" {
 		return nil
 	}

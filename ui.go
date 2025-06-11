@@ -15,6 +15,7 @@ type UI struct {
 	addr        string
 	cmdRegistry *CommandRegistry
 	mapRegistry *MappingRegistry
+	mapDepth    int
 
 	updateStreamsCh     chan struct{}
 	forceRemoteUpdateCh chan struct{}
@@ -33,12 +34,16 @@ type MainPage struct {
 	strimsList    *tview.List
 	twitchList    *tview.List
 
-	focusedList   *tview.List // Can either be strimsList or twitchList
-	streams       *ls.Streams
-	twitchFilter  *FilterInput
-	strimsFilter  *FilterInput
-	lastSearch    string
-	strimsVisible bool
+	focusedList    *tview.List // Can either be strimsList or twitchList
+	streams        *ls.Streams
+	twitchFilter   *FilterInput
+	strimsFilter   *FilterInput
+	lastSearch     string
+	isDoingMapping bool
+
+	// :set options
+	strims  bool
+	winopen bool
 }
 
 type FilterInput struct {
@@ -72,7 +77,7 @@ func NewUI() *UI {
 				Twitch: new(ls.TwitchStreams),
 				Strims: new(ls.StrimsStreams),
 			},
-			strimsVisible: true,
+			strims: true,
 		},
 		cmdRegistry:         NewCommandRegistry(),
 		mapRegistry:         NewMappingRegistry(),
