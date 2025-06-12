@@ -9,7 +9,7 @@ import (
 )
 
 func (m *MainPage) refreshStrimsList() {
-	if m.strimsList.HasFocus() {
+	if m.focusedList != m.strimsList {
 		m.strimsList.SetChangedFunc(nil)
 		defer m.strimsList.SetChangedFunc(m.updateStrimsStreamInfo)
 	}

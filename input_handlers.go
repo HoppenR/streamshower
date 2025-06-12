@@ -78,6 +78,7 @@ func (ui *UI) commandLineInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		return event
 	}
 
+	// TODO: Do I want keybinds to be able to access these?
 	switch event.Key() {
 	case tcell.KeyUp:
 		if len(ui.cmdRegistry.history) == 0 {

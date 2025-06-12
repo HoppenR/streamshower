@@ -11,7 +11,7 @@ import (
 )
 
 func (m *MainPage) refreshTwitchList() {
-	if m.twitchList.HasFocus() {
+	if m.focusedList != m.twitchList {
 		m.twitchList.SetChangedFunc(nil)
 		defer m.twitchList.SetChangedFunc(m.updateTwitchStreamInfo)
 	}

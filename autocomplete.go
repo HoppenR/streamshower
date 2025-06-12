@@ -24,11 +24,10 @@ func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) boo
 		ui.app.SetFocus(ui.mainPage.streamsCon)
 		return true
 	} else if source == tview.AutocompletedTab {
-		// Move cursor into the regex pattern if completion is :v or :g
-		if cmdLine == ":global//d" || cmdLine == ":global//p" {
-			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
-			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
-		} else if cmdLine == ":vglobal//d" || cmdLine == ":vglobal//p" {
+		// Move cursor into the regex pattern if completion ~=
+		// :v?global/.*/[dp]
+		if (strings.HasPrefix(cmdLine, ":global/") || strings.HasPrefix(cmdLine, ":vglobal/")) &&
+			(strings.HasSuffix(cmdLine, "/p") || strings.HasSuffix(cmdLine, "/d")) {
 			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
 			ui.app.QueueEvent(tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone))
 		}
