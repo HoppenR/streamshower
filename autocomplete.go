@@ -21,7 +21,7 @@ func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) boo
 			ui.mainPage.appStatusText.SetText(err.Error())
 			return false
 		}
-		ui.app.SetFocus(ui.mainPage.streamsCon)
+		ui.app.SetFocus(ui.mainPage.focusedList)
 		return true
 	} else if source == tview.AutocompletedTab {
 		// Move cursor into the regex pattern if completion ~=

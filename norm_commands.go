@@ -5,6 +5,32 @@ import (
 	"strings"
 )
 
+type BuiltinHelp struct {
+	Names       []string
+	Description string
+}
+
+var builtinHelps = []BuiltinHelp{
+	{Names: []string{"/", "?"}, Description: "Enter search mode"},
+	{Names: []string{":"}, Description: "Enter command mode"},
+	{Names: []string{"<Bar>"}, Description: "Special character representing `|` for chaining commands inside the rhs in mappings"},
+	{Names: []string{"<C-d>"}, Description: "Scroll downwards half of the list"},
+	{Names: []string{"<C-e>"}, Description: "Scroll downwards one line"},
+	{Names: []string{"<C-n>", "<Down>", "j"}, Description: "Go down one line"},
+	{Names: []string{"<C-p>", "<Up>", "k"}, Description: "Go up one line"},
+	{Names: []string{"<C-u>"}, Description: "Scroll upwards half of the list"},
+	{Names: []string{"<C-y>"}, Description: "Scroll upwards one line"},
+	{Names: []string{"<C-z>"}, Description: "When used in mappings, this triggers autocomplete (like `wildcharm` in vim)"},
+	{Names: []string{"G"}, Description: "Go to last line of the list"},
+	{Names: []string{"M"}, Description: "Go to middle of the list"},
+	{Names: []string{"N"}, Description: "Go to previous search match"},
+	{Names: []string{"g"}, Description: "Go to first line of the list"},
+	{Names: []string{"special-keys"}, Description: "<Bar> <Down> <CR> <Esc> <Left> <Right> <Space> <Tab> <Up> <C-a>..<C-z> <F1>..<F12>"},
+	{Names: []string{"n"}, Description: "Go to next search match"},
+	{Names: []string{"option-list"}, Description: "strims: toggle strims window;  winopen: open links in new browser window"},
+	{Names: []string{"z"}, Description: "Redraw line at center of window"},
+}
+
 func (ui *UI) moveUp() {
 	listIdx := ui.mainPage.focusedList.GetCurrentItem()
 	if listIdx != 0 {

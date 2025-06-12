@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -65,28 +66,28 @@ func encodeMappingKey(input *tcell.EventKey) string {
 		default:
 			return string(input.Rune())
 		}
-	case tcell.KeyBackspace:
-		return "<BS>"
-	case tcell.KeyEnter:
-		return "<CR>"
 	case tcell.KeyDown:
 		return "<Down>"
+	case tcell.KeyEnter:
+		return "<CR>"
 	case tcell.KeyEsc:
 		return "<Esc>"
+	case tcell.KeyLeft:
+		return "<Left>"
+	case tcell.KeyRight:
+		return "<Right>"
 	case tcell.KeyTab:
 		return "<Tab>"
 	case tcell.KeyUp:
 		return "<Up>"
-	case tcell.KeyRight:
-		return "<Right>"
 	}
 	if input.Key() >= tcell.KeyCtrlA && input.Key() <= tcell.KeyCtrlZ {
 		c := 'a' + rune(input.Key()-tcell.KeyCtrlA)
 		return fmt.Sprintf("<C-%c>", c)
 	}
-	if input.Key() >= tcell.KeyF1 && input.Key() <= tcell.KeyF9 {
-		c := '1' + rune(input.Key()-tcell.KeyF1)
-		return fmt.Sprintf("<F%c>", c)
+	if input.Key() >= tcell.KeyF1 && input.Key() <= tcell.KeyF12 {
+		fnum := int(input.Key() - tcell.KeyF1 + 1)
+		return fmt.Sprintf("<F%d>", fnum)
 	}
 	return fmt.Sprintf("<Key-%d>", input.Key())
 }
@@ -96,37 +97,39 @@ func parseMappingKey(key string) (*tcell.EventKey, error) {
 		key = strings.TrimSpace(key)
 	}
 	if strings.HasPrefix(key, "<") && strings.HasSuffix(key, ">") {
-		name := strings.ToLower(key[1 : len(key)-1])
+		name := key[1 : len(key)-1]
 		switch name {
-		case "bs", "backspace":
-			return tcell.NewEventKey(tcell.KeyBackspace, 0, tcell.ModNone), nil
-		case "cr", "enter":
+		case "CR":
 			return tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone), nil
-		case "down":
+		case "Down":
 			return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil
-		case "esc":
+		case "Esc":
 			return tcell.NewEventKey(tcell.KeyEsc, 0, tcell.ModNone), nil
-		case "space":
-			return tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone), nil
-		case "tab":
-			return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone), nil
-		case "up":
-			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil
-		case "right":
+		case "Left":
+			return tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone), nil
+		case "Right":
 			return tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone), nil
+		case "Space":
+			return tcell.NewEventKey(tcell.KeyRune, ' ', tcell.ModNone), nil
+		case "Tab":
+			return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone), nil
+		case "Up":
+			return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil
 		}
-		// TODO: Handle these with regex instead
-		if strings.HasPrefix(name, "c-") && len(name) == 3 {
-			c := name[2]
+		if strings.HasPrefix(name, "C-") && len(name) == 3 {
+			c := rune(name[2])
 			if c >= 'a' && c <= 'z' {
 				ctrlKey := tcell.KeyCtrlA + tcell.Key(c-'a')
 				return tcell.NewEventKey(ctrlKey, 0, tcell.ModNone), nil
 			}
 		}
-		if strings.HasPrefix(name, "f") && len(name) == 2 {
-			c := name[1]
-			if c >= '1' && c <= '9' {
-				ctrlKey := tcell.KeyF1 + tcell.Key(c-'1')
+		if strings.HasPrefix(name, "F") {
+			c, err := strconv.Atoi(name[1:])
+			if err != nil {
+				return nil, fmt.Errorf("bad function key: F%s", name[1:])
+			}
+			if c >= 1 && c <= 12 {
+				ctrlKey := tcell.KeyF1 + tcell.Key(c-1)
 				return tcell.NewEventKey(ctrlKey, 0, tcell.ModNone), nil
 			}
 		}
