@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -167,11 +166,11 @@ func extractCmdName(text string) (name string, rest string) {
 	return text, ""
 }
 
-func applyFilterFromArg(m *MainPage, arg string, bang bool, invertMatching bool) error {
+func (m *MainPage) applyFilterFromArg(arg string, bang bool, invertMatching bool) {
 	re := regexp.MustCompile(`^\/([^\/]*)\/([dp])$`)
 	matches := re.FindStringSubmatch(arg)
 	if len(matches) <= 2 {
-		return errors.New("No matches")
+		return
 	}
 	cmdArgument := matches[1]
 	exCmd := rune(matches[2][0])
@@ -192,14 +191,25 @@ func applyFilterFromArg(m *MainPage, arg string, bang bool, invertMatching bool)
 	}
 	m.refreshTwitchList()
 	m.refreshStrimsList()
-	return nil
 }
 
 func (r *CommandRegistry) matchPossibleCommands(name string) []*ExCommand {
-	possible := []*ExCommand{}
+	var possible []*ExCommand
 	for _, cmd := range r.commands {
 		if strings.HasPrefix(cmd.Name, name) {
 			possible = append(possible, cmd)
+		}
+	}
+	return possible
+}
+
+func (r *CommandRegistry) matchPossibleBuiltinHelps(name string) []string {
+	var possible []string
+	for _, bh := range r.builtinHelps {
+		for _, bhName := range bh.Names {
+			if strings.HasPrefix(bhName, name) {
+				possible = append(possible, bhName)
+			}
 		}
 	}
 	return possible
