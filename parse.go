@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -11,7 +12,7 @@ import (
 
 func (ui *UI) onTypeCommandChain(cmdLine string) {
 	if cmdLine == "" {
-		ui.app.SetFocus(ui.mainPage.streamsCon)
+		ui.app.SetFocus(ui.mainPage.focusedList)
 		return
 	}
 	commands := strings.Split(cmdLine, "|")
@@ -64,7 +65,7 @@ func (ui *UI) onTypeCommand(cmd string) error {
 	return nil
 }
 
-// Callback for when a user has manually typed in a command
+// Callback for when the command line has finished
 func (ui *UI) execCommandChainCallback(key tcell.Key) {
 	switch key {
 	case tcell.KeyEnter:
@@ -203,13 +204,25 @@ func (r *CommandRegistry) matchPossibleCommands(name string) []*ExCommand {
 	return possible
 }
 
-func (r *CommandRegistry) matchPossibleBuiltinHelps(name string) []string {
+func matchPossibleBuiltinHelpNames(name string) []string {
 	var possible []string
-	for _, bh := range r.builtinHelps {
+	for _, bh := range builtinHelps {
 		for _, bhName := range bh.Names {
 			if strings.HasPrefix(bhName, name) {
 				possible = append(possible, bhName)
 			}
+		}
+	}
+	return possible
+}
+
+func matchPossibleBuiltinHelps(name string) []BuiltinHelp {
+	var possible []BuiltinHelp
+	for _, bh := range builtinHelps {
+		if slices.ContainsFunc(bh.Names, func(bhName string) bool {
+			return strings.HasPrefix(bhName, name)
+		}) {
+			possible = append(possible, bh)
 		}
 	}
 	return possible

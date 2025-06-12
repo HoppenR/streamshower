@@ -15,6 +15,25 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 
 	var lhs, rhs string
 	lhs = encodeMappingKey(event)
+	rhs, ok = ui.mapRegistry.mappings[lhs]
+	if ok {
+		if ui.mapDepth > 0 {
+			panic("bug: new mapping called from unfinished mapping")
+		}
+		keyStrings, err := ui.mapRegistry.resolveMappings(rhs)
+		if err != nil {
+			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
+			ui.mapDepth = 0
+			return nil
+		}
+		ui.mapDepth += len(keyStrings)
+		err = ui.execCommandChainMapping(keyStrings)
+		if err != nil {
+			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
+		}
+		return nil
+	}
+
 	switch lhs {
 	case "/", ":", "?":
 		ui.mainPage.commandLine.SetText(lhs)
@@ -46,23 +65,6 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	}
 	if ui.mapDepth > 0 {
 		ui.mapDepth--
-		return nil
-	}
-
-	rhs, ok = ui.mapRegistry.mappings[lhs]
-	if ok {
-		keyStrings, err := ui.mapRegistry.resolveMappings(rhs)
-		if err != nil {
-			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
-			ui.mapDepth = 0
-			return nil
-		}
-		ui.mapDepth += len(keyStrings)
-		err = ui.execCommandChainMapping(keyStrings)
-		if err != nil {
-			ui.mainPage.appStatusText.SetText(fmt.Sprintf("[%s]%s[-]", "orange", err.Error()))
-		}
-		return nil
 	}
 	return nil
 }
@@ -82,7 +84,6 @@ func (ui *UI) commandLineInputHandler(event *tcell.EventKey) *tcell.EventKey {
 		return event
 	}
 
-	// TODO: Do I want keybinds to be able to access these?
 	switch event.Key() {
 	case tcell.KeyUp:
 		if len(ui.cmdRegistry.history) == 0 {
@@ -113,7 +114,11 @@ func (ui *UI) commandLineInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	case tcell.KeyCtrlN:
 		return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
 	case tcell.KeyCtrlY:
+		// Common vim key for accepting completion window
 		return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+	case tcell.KeyCtrlE:
+		// Common vim key for dismissing completion window
+		return tcell.NewEventKey(tcell.KeyEsc, 0, tcell.ModNone)
 	}
 	return event
 }

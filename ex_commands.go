@@ -5,17 +5,15 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
 )
 
 type CommandRegistry struct {
-	commands     []*ExCommand
-	builtinHelps []*BuiltinHelp
-	history      []string
-	histIndex    int
+	commands  []*ExCommand
+	history   []string
+	histIndex int
 }
 
 type ExCommand struct {
@@ -29,16 +27,8 @@ type ExCommand struct {
 	MaxArgs     int
 }
 
-type BuiltinHelp struct {
-	Names       []string
-	Description string
-}
-
 func NewCommandRegistry() *CommandRegistry {
-	return &CommandRegistry{
-		commands:     defaultCommands,
-		builtinHelps: defaultBuiltinHelps,
-	}
+	return &CommandRegistry{commands: defaultCommands}
 }
 
 var defaultCommands = []*ExCommand{{
@@ -47,9 +37,9 @@ var defaultCommands = []*ExCommand{{
 	Usage:       "c[opyurl[] {method}",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(u *UI, s string, bang bool) []string {
+	Complete: func(ui *UI, s string, bang bool) []string {
 		methods := []string{"chat", "embed", "homepage", "mpv", "strims"}
-		matches := make([]string, 0, len(methods))
+		var matches []string
 		for _, method := range methods {
 			if strings.HasPrefix(method, s) {
 				matches = append(matches, ":copyurl "+method)
@@ -91,7 +81,7 @@ var defaultCommands = []*ExCommand{{
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
 		lists := []string{"strims", "toggle", "twitch"}
-		entries := make([]string, 0, len(lists))
+		var entries []string
 		for _, list := range lists {
 			if strings.HasPrefix(list, s) {
 				entries = append(entries, ":focus "+list)
@@ -145,43 +135,47 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     0,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		possibleCmds := ui.cmdRegistry.matchPossibleCommands(s)
-		possibleBuiltinHelps := ui.cmdRegistry.matchPossibleBuiltinHelps(s)
-		entries := make([]string, 0, len(possibleCmds)+len(possibleBuiltinHelps))
+		possibleBuiltinHelps := matchPossibleBuiltinHelpNames(s)
+		entries := make([]string, 0, len(ui.cmdRegistry.commands)+len(builtinHelps))
 		for _, bh := range possibleBuiltinHelps {
 			entries = append(entries, ":help "+bh)
 		}
-		for _, cmd := range possibleCmds {
-			entries = append(entries, ":help :"+cmd.Name)
+		if strings.HasPrefix(s, ":") {
+			cmdName := strings.TrimPrefix(s, ":")
+			for _, cmd := range ui.cmdRegistry.matchPossibleCommands(cmdName) {
+				entries = append(entries, ":help :"+cmd.Name)
+			}
 		}
 		return entries
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
-		ui.mainPage.streamInfo.Clear()
-		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down in the info window[-::-] ---\n"))
+		var mappings []byte
 		switch len(args) {
 		case 0:
-			for _, bh := range ui.cmdRegistry.builtinHelps {
-				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, "([::b]builtin[::-]) [red]%s[-]\n  %s\n", strings.Join(bh.Names, "[-] or [red]"), bh.Description))
+			for _, bh := range builtinHelps {
+				mappings = fmt.Appendf(mappings, "([::b]builtin[::-]) [red]%s[-]\n  %s\n", strings.Join(bh.Names, "[-] or [red]"), bh.Description)
 			}
 			for _, cmd := range ui.cmdRegistry.commands {
-				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, ":[red]%s[-]\n  %s\n", cmd.Usage, cmd.Description))
+				mappings = fmt.Appendf(mappings, ":[red]%s[-]\n  %s\n", cmd.Usage, cmd.Description)
 			}
 		case 1:
-			query := strings.TrimPrefix(args[0], ":")
-			for _, cmd := range ui.cmdRegistry.commands {
-				if !strings.HasPrefix(cmd.Name, query) {
-					continue
-				}
-				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, ":[red]%s[-] - %s\n", cmd.Usage, cmd.Description))
+			for _, bh := range matchPossibleBuiltinHelps(args[0]) {
+				mappings = fmt.Appendf(mappings, "([::b]builtin[::-]) [red]%s[-]\n  %s\n", strings.Join(bh.Names, "[-] or [red]"), bh.Description)
 			}
-			for _, bh := range ui.cmdRegistry.builtinHelps {
-				if slices.Index(bh.Names, query) == -1 {
-					continue
+			if strings.HasPrefix(args[0], ":") {
+				cmdName := strings.TrimPrefix(args[0], ":")
+				for _, cmd := range ui.cmdRegistry.matchPossibleCommands(cmdName) {
+					mappings = fmt.Appendf(mappings, ":[red]%s[-]\n  %s\n", cmd.Usage, cmd.Description)
 				}
-				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, "([::b]builtin[::-]) [red]%s[-]\n  %s\n", strings.Join(bh.Names, "[-] or [red]"), bh.Description))
+			}
+			if len(mappings) == 0 {
+				return fmt.Errorf("no help found for %s", args[0])
 			}
 		}
+		ui.mainPage.streamInfo.Clear()
+		ui.mainPage.streamInfo.ScrollTo(0, 0)
+		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down in the info window[-::-] ---\n"))
+		ui.mainPage.streamInfo.Write(mappings)
 		ui.mainPage.streamInfo.SetTitle("HELP")
 		return nil
 	},
@@ -191,10 +185,9 @@ var defaultCommands = []*ExCommand{{
 	Usage:       "m[ap[] [lhs rhs[]",
 	MinArgs:     0,
 	MaxArgs:     math.MaxInt,
-	Complete: func(u *UI, s string, bang bool) []string {
-		methods := maps.Keys(u.mapRegistry.mappings)
-		matches := make([]string, 0, len(u.mapRegistry.mappings))
-		for method := range methods {
+	Complete: func(ui *UI, s string, bang bool) []string {
+		matches := make([]string, 0, len(ui.mapRegistry.mappings))
+		for method := range maps.Keys(ui.mapRegistry.mappings) {
 			if strings.HasPrefix(method, s) {
 				matches = append(matches, ":map "+method)
 			}
@@ -203,43 +196,50 @@ var defaultCommands = []*ExCommand{{
 		return matches
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
-		var mappings []string
+		keys := make([]string, 0, len(ui.mapRegistry.mappings))
 		switch len(args) {
 		case 0:
-			for lhs, rhs := range ui.mapRegistry.mappings {
-				mappings = append(mappings, fmt.Sprintf("[red]%s[-] - %s\n", lhs, rhs))
+			for lhs := range maps.Keys(ui.mapRegistry.mappings) {
+				keys = append(keys, lhs)
 			}
 		case 1:
-			for lhs, rhs := range ui.mapRegistry.mappings {
+			for lhs := range maps.Keys(ui.mapRegistry.mappings) {
 				if !strings.HasPrefix(lhs, args[0]) {
 					continue
 				}
-				mappings = append(mappings, fmt.Sprintf("[red]%s[-] - %s\n", lhs, rhs))
+				keys = append(keys, lhs)
 			}
-			if len(mappings) == 0 {
+			if len(keys) == 0 {
 				return fmt.Errorf("no mapping found for %s", args[0])
 			}
 		default:
 			if err := validateMappingKey(args[0]); err != nil {
 				return err
 			}
+			if args[0] == ":" {
+				return errors.New("unsupported mapping using ':'")
+			}
 			rhs := strings.Join(args[1:], " ")
 			rhs = strings.ReplaceAll(rhs, "<Bar>", "|")
 			ui.mapRegistry.mappings[args[0]] = rhs
 			return nil
 		}
-		sort.Strings(mappings)
-		ui.mainPage.streamInfo.Clear()
-		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down in the info window[-::-] ---\n"))
-		for _, line := range mappings {
-			ui.mainPage.streamInfo.Write([]byte(line))
+		sort.Strings(keys)
+		var mappings []byte
+		for _, lhs := range keys {
+			rhs := ui.mapRegistry.mappings[lhs]
+			mappings = fmt.Appendf(mappings, "[red]%-7s[-] %s\n", lhs, rhs)
 		}
+		ui.mainPage.streamInfo.Clear()
+		ui.mainPage.streamInfo.ScrollTo(0, 0)
+		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down in the info window[-::-] ---\n"))
+		ui.mainPage.streamInfo.Write(mappings)
 		ui.mainPage.streamInfo.SetTitle("MAPPINGS")
 		return nil
 	},
 }, {
 	Name:        "nohlsearch",
-	Description: "Stop higlighting search",
+	Description: "Stop highlighting search",
 	Usage:       "n[ohlsearch[]",
 	MinArgs:     0,
 	MaxArgs:     0,
@@ -255,9 +255,9 @@ var defaultCommands = []*ExCommand{{
 	Usage:       "o[pen[] {method}",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(u *UI, s string, bang bool) []string {
+	Complete: func(ui *UI, s string, bang bool) []string {
 		methods := []string{"chat", "embed", "homepage", "mpv", "strims"}
-		matches := make([]string, 0, len(methods))
+		var matches []string
 		for _, method := range methods {
 			if strings.HasPrefix(method, s) {
 				matches = append(matches, ":open "+method)
@@ -283,7 +283,7 @@ var defaultCommands = []*ExCommand{{
 	},
 }, {
 	Name:        "resize",
-	Description: "Resize current window to {size} (default: 1)",
+	Description: "Resize current window to {size} (startup value: 1)",
 	Usage:       "r[esize[] {size}",
 	MinArgs:     1,
 	MaxArgs:     1,
@@ -291,6 +291,9 @@ var defaultCommands = []*ExCommand{{
 		n, err := strconv.Atoi(args[0])
 		if err != nil {
 			return err
+		}
+		if n <= 0 {
+			return fmt.Errorf("cannot resize to zero or negative size %d", n)
 		}
 		ui.mainPage.streamsCon.ResizeItem(ui.mainPage.focusedList, 0, n)
 		return nil
@@ -301,9 +304,9 @@ var defaultCommands = []*ExCommand{{
 	Usage:       "sc[rollinfo[] {direction}",
 	MinArgs:     1,
 	MaxArgs:     1,
-	Complete: func(u *UI, s string, bang bool) []string {
+	Complete: func(ui *UI, s string, bang bool) []string {
 		methods := []string{"down", "up"}
-		matches := make([]string, 0, len(methods))
+		var matches []string
 		for _, method := range methods {
 			if strings.HasPrefix(method, s) {
 				matches = append(matches, ":scrollinfo "+method)
@@ -354,7 +357,7 @@ var defaultCommands = []*ExCommand{{
 			cmdPfx.WriteString("no")
 			s = strings.TrimPrefix(s, "no")
 		}
-		matches := make([]string, 0, len(options))
+		var matches []string
 		for _, opt := range options {
 			if strings.HasPrefix(opt, s) {
 				matches = append(matches, cmdPfx.String()+opt)
@@ -409,7 +412,7 @@ var defaultCommands = []*ExCommand{{
 }, {
 	Name:        "undo",
 	Description: "Undo filters",
-	Usage:       "un[do[]",
+	Usage:       "und[o[]",
 	MinArgs:     0,
 	MaxArgs:     0,
 	Execute: func(ui *UI, args []string, bang bool) error {
@@ -423,6 +426,29 @@ var defaultCommands = []*ExCommand{{
 			ui.mainPage.refreshStrimsList()
 		}
 		return nil
+	},
+}, {
+	Name:        "unmap",
+	Description: "Unmap the mapping tied to the keypress {lhs}",
+	Usage:       "unm[ap[] {lhs}",
+	MinArgs:     1,
+	MaxArgs:     1,
+	Complete: func(ui *UI, s string, bang bool) []string {
+		matches := make([]string, 0, len(ui.mapRegistry.mappings))
+		for method := range maps.Keys(ui.mapRegistry.mappings) {
+			if strings.HasPrefix(method, s) {
+				matches = append(matches, ":unmap "+method)
+			}
+		}
+		sort.Strings(matches)
+		return matches
+	},
+	Execute: func(ui *UI, args []string, bang bool) error {
+		if _, ok := ui.mapRegistry.mappings[args[0]]; ok {
+			delete(ui.mapRegistry.mappings, args[0])
+			return nil
+		}
+		return fmt.Errorf("no mapping found for %s", args[0])
 	},
 }, {
 	Name:        "update",
@@ -482,22 +508,3 @@ var defaultCommands = []*ExCommand{{
 		return nil
 	},
 }}
-
-var defaultBuiltinHelps = []*BuiltinHelp{
-	{Names: []string{"/", "?"}, Description: "Enter search mode"},
-	{Names: []string{":"}, Description: "Enter command mode"},
-	{Names: []string{"<C-d>"}, Description: "Scroll downwards half of the list"},
-	{Names: []string{"<C-e>"}, Description: "Scroll downwards one line"},
-	{Names: []string{"<C-n>", "<Down>", "j"}, Description: "Go down one line"},
-	{Names: []string{"<C-p>", "<Up>", "k"}, Description: "Go up one line"},
-	{Names: []string{"<C-u>"}, Description: "Scroll upwards half of the list"},
-	{Names: []string{"<C-y>"}, Description: "Scroll upwards one line"},
-	{Names: []string{"<C-z>"}, Description: "When used in mappings, this triggers autocomplete (like `wildcharm` in vim)"},
-	{Names: []string{"G"}, Description: "Go to last line of the list"},
-	{Names: []string{"M"}, Description: "Go to middle of the list"},
-	{Names: []string{"N"}, Description: "Go to previous search match"},
-	{Names: []string{"g"}, Description: "Go to first line of the list"},
-	{Names: []string{"n"}, Description: "Go to next search match"},
-	{Names: []string{"option-list"}, Description: "strims: toggle strims window; winopen: open links in new browser window"},
-	{Names: []string{"z"}, Description: "Redraw line at center of window"},
-}
