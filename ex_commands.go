@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"maps"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 )
 
 type CommandRegistry struct {
-	commands  []*ExCommand
-	history   []string
-	histIndex int
+	commands     []*ExCommand
+	builtinHelps []*BuiltinHelp
+	history      []string
+	histIndex    int
 }
 
 type ExCommand struct {
@@ -27,8 +29,16 @@ type ExCommand struct {
 	MaxArgs     int
 }
 
+type BuiltinHelp struct {
+	Names       []string
+	Description string
+}
+
 func NewCommandRegistry() *CommandRegistry {
-	return &CommandRegistry{commands: defaultCommands}
+	return &CommandRegistry{
+		commands:     defaultCommands,
+		builtinHelps: defaultBuiltinHelps,
+	}
 }
 
 var defaultCommands = []*ExCommand{{
@@ -38,7 +48,7 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(u *UI, s string, bang bool) []string {
-		methods := []string{"embed", "homepage", "mpv", "strims", "chat"}
+		methods := []string{"chat", "embed", "homepage", "mpv", "strims"}
 		matches := make([]string, 0, len(methods))
 		for _, method := range methods {
 			if strings.HasPrefix(method, s) {
@@ -49,6 +59,8 @@ var defaultCommands = []*ExCommand{{
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
 		switch args[0] {
+		case "chat":
+			return ui.copySelectedStreamToClipboard(lnkOpenChat)
 		case "embed":
 			return ui.copySelectedStreamToClipboard(lnkOpenEmbed)
 		case "homepage":
@@ -57,8 +69,6 @@ var defaultCommands = []*ExCommand{{
 			return ui.copySelectedStreamToClipboard(lnkOpenMpv)
 		case "strims":
 			return ui.copySelectedStreamToClipboard(lnkOpenStrims)
-		case "chat":
-			return ui.copySelectedStreamToClipboard(lnkOpenChat)
 		default:
 			return fmt.Errorf("unsupported method")
 		}
@@ -80,7 +90,7 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		lists := []string{"twitch", "strims", "toggle"}
+		lists := []string{"strims", "toggle", "twitch"}
 		entries := make([]string, 0, len(lists))
 		for _, list := range lists {
 			if strings.HasPrefix(list, s) {
@@ -125,7 +135,8 @@ var defaultCommands = []*ExCommand{{
 		return append(ret, ":global//d")
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {
-		return applyFilterFromArg(ui.mainPage, strings.Join(args, " "), bang, false)
+		ui.mainPage.applyFilterFromArg(strings.Join(args, " "), bang, false)
+		return nil
 	},
 }, {
 	Name:        "help",
@@ -135,24 +146,24 @@ var defaultCommands = []*ExCommand{{
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
 		possibleCmds := ui.cmdRegistry.matchPossibleCommands(s)
-		entries := make([]string, 0, len(possibleCmds))
+		possibleBuiltinHelps := ui.cmdRegistry.matchPossibleBuiltinHelps(s)
+		entries := make([]string, 0, len(possibleCmds)+len(possibleBuiltinHelps))
+		for _, bh := range possibleBuiltinHelps {
+			entries = append(entries, ":help "+bh)
+		}
 		for _, cmd := range possibleCmds {
 			entries = append(entries, ":help :"+cmd.Name)
 		}
 		return entries
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
-		// TODO: add help entries for:
-		//       "G", "g", "j", "<Down>", "<C-n>", "k", "<Up>", "<C-p>",
-		//       "M", "z", "<C-e>", "<C-y>", "<C-u>", "<C-d>", ":", "/",
-		//       "?"
-		// TODO: add `:set` option entries for:
-		//       "strims", "winopen"
-		// TODO: add info about <C-z> in mappings
 		ui.mainPage.streamInfo.Clear()
-		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n"))
+		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down in the info window[-::-] ---\n"))
 		switch len(args) {
 		case 0:
+			for _, bh := range ui.cmdRegistry.builtinHelps {
+				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, "([::b]builtin[::-]) [red]%s[-]\n  %s\n", strings.Join(bh.Names, "[-] or [red]"), bh.Description))
+			}
 			for _, cmd := range ui.cmdRegistry.commands {
 				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, ":[red]%s[-]\n  %s\n", cmd.Usage, cmd.Description))
 			}
@@ -163,6 +174,12 @@ var defaultCommands = []*ExCommand{{
 					continue
 				}
 				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, ":[red]%s[-] - %s\n", cmd.Usage, cmd.Description))
+			}
+			for _, bh := range ui.cmdRegistry.builtinHelps {
+				if slices.Index(bh.Names, query) == -1 {
+					continue
+				}
+				ui.mainPage.streamInfo.Write(fmt.Appendf(nil, "([::b]builtin[::-]) [red]%s[-]\n  %s\n", strings.Join(bh.Names, "[-] or [red]"), bh.Description))
 			}
 		}
 		ui.mainPage.streamInfo.SetTitle("HELP")
@@ -182,6 +199,7 @@ var defaultCommands = []*ExCommand{{
 				matches = append(matches, ":map "+method)
 			}
 		}
+		sort.Strings(matches)
 		return matches
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
@@ -212,7 +230,7 @@ var defaultCommands = []*ExCommand{{
 		}
 		sort.Strings(mappings)
 		ui.mainPage.streamInfo.Clear()
-		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n"))
+		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down in the info window[-::-] ---\n"))
 		for _, line := range mappings {
 			ui.mainPage.streamInfo.Write([]byte(line))
 		}
@@ -238,7 +256,7 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(u *UI, s string, bang bool) []string {
-		methods := []string{"embed", "homepage", "mpv", "strims", "chat"}
+		methods := []string{"chat", "embed", "homepage", "mpv", "strims"}
 		matches := make([]string, 0, len(methods))
 		for _, method := range methods {
 			if strings.HasPrefix(method, s) {
@@ -249,6 +267,8 @@ var defaultCommands = []*ExCommand{{
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
 		switch args[0] {
+		case "chat":
+			return ui.openSelectedStream(lnkOpenChat)
 		case "embed":
 			return ui.openSelectedStream(lnkOpenEmbed)
 		case "homepage":
@@ -257,8 +277,6 @@ var defaultCommands = []*ExCommand{{
 			return ui.openSelectedStream(lnkOpenMpv)
 		case "strims":
 			return ui.openSelectedStream(lnkOpenStrims)
-		case "chat":
-			return ui.openSelectedStream(lnkOpenChat)
 		default:
 			return fmt.Errorf("unsupported method")
 		}
@@ -284,7 +302,7 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(u *UI, s string, bang bool) []string {
-		methods := []string{"up", "down"}
+		methods := []string{"down", "up"}
 		matches := make([]string, 0, len(methods))
 		for _, method := range methods {
 			if strings.HasPrefix(method, s) {
@@ -320,7 +338,7 @@ var defaultCommands = []*ExCommand{{
 	},
 }, {
 	Name:        "set",
-	Description: "Set [option[] or [no{option}[], ! toggles the value. Available options: strims, winopen",
+	Description: "Set [option[] or [no{option}[], ! toggles the value. see `:h option-list`",
 	Usage:       "se[t[][![] [option[]",
 	MinArgs:     1,
 	MaxArgs:     1,
@@ -372,6 +390,8 @@ var defaultCommands = []*ExCommand{{
 				} else {
 					ui.mainPage.winopen = true
 				}
+			default:
+				return fmt.Errorf("unknown option %s", arg)
 			}
 		}
 		return nil
@@ -439,7 +459,8 @@ var defaultCommands = []*ExCommand{{
 		return append(ret, ":vglobal//d")
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {
-		return applyFilterFromArg(ui.mainPage, strings.Join(args, " "), bang, true)
+		ui.mainPage.applyFilterFromArg(strings.Join(args, " "), bang, true)
+		return nil
 	},
 }, {
 	Name:        "windo",
@@ -461,3 +482,20 @@ var defaultCommands = []*ExCommand{{
 		return nil
 	},
 }}
+
+var defaultBuiltinHelps = []*BuiltinHelp{
+	{Names: []string{"/", "?"}, Description: "Enter search mode"},
+	{Names: []string{":"}, Description: "Enter command mode"},
+	{Names: []string{"<C-d>"}, Description: "Scroll downwards half of the list"},
+	{Names: []string{"<C-e>"}, Description: "Scroll downwards one line"},
+	{Names: []string{"<C-n>", "<Down>", "j"}, Description: "Go down one line"},
+	{Names: []string{"<C-p>", "<Up>", "k"}, Description: "Go up one line"},
+	{Names: []string{"<C-u>"}, Description: "Scroll upwards half of the list"},
+	{Names: []string{"<C-y>"}, Description: "Scroll upwards one line"},
+	{Names: []string{"<C-z>"}, Description: "When used in mappings, this triggers the autocomplete window (like `wildcharm` in vim)"},
+	{Names: []string{"G"}, Description: "Go to the last line of list"},
+	{Names: []string{"M"}, Description: "Go to middle of list"},
+	{Names: []string{"g"}, Description: "Go to the first line of list"},
+	{Names: []string{"option-list"}, Description: "strims: toggle strims window; winopen: open links in new browser window"},
+	{Names: []string{"z"}, Description: "Redraw line at center of window"},
+}
