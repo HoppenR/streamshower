@@ -18,10 +18,6 @@ type MappingRegistry struct {
 	mappings map[string]string
 }
 
-type Mapping struct {
-	Key string
-}
-
 var defaultMappingLiterals = map[string]string{
 	"<C-b>":   ":scrollinfo up<CR>",
 	"<C-f>":   ":scrollinfo down<CR>",
@@ -142,14 +138,14 @@ func parseMappingKey(key string) (*tcell.EventKey, error) {
 	return nil, fmt.Errorf("invalid key format: %s", key)
 }
 
-func (r *MappingRegistry) resolveMappings(input string) ([]Mapping, error) {
+func (r *MappingRegistry) resolveMappings(input string) ([]string, error) {
 	mode := ModeNormal
 
-	var keys []Mapping
+	var keys []string
 	for i := 0; i < len(input); {
 		if input[i] == ':' {
 			mode = ModeCommand
-			keys = append(keys, Mapping{Key: ":"})
+			keys = append(keys, ":")
 			i++
 			continue
 		}
@@ -169,7 +165,7 @@ func (r *MappingRegistry) resolveMappings(input string) ([]Mapping, error) {
 						mode = ModeNormal
 						fallthrough
 					default:
-						keys = append(keys, Mapping{Key: key})
+						keys = append(keys, key)
 					}
 				case ModeNormal:
 					rhs, ok := r.mappings[key]
@@ -180,7 +176,7 @@ func (r *MappingRegistry) resolveMappings(input string) ([]Mapping, error) {
 						}
 						keys = append(keys, rKeys...)
 					} else {
-						keys = append(keys, Mapping{Key: key})
+						keys = append(keys, key)
 					}
 				}
 				i += end + 1
@@ -192,7 +188,7 @@ func (r *MappingRegistry) resolveMappings(input string) ([]Mapping, error) {
 
 		switch mode {
 		case ModeCommand:
-			keys = append(keys, Mapping{Key: input[i : i+1]})
+			keys = append(keys, input[i:i+1])
 		case ModeNormal:
 			rhs, ok := r.mappings[input[i:i+1]]
 			if ok {
@@ -202,7 +198,7 @@ func (r *MappingRegistry) resolveMappings(input string) ([]Mapping, error) {
 				}
 				keys = append(keys, rKeys...)
 			} else {
-				keys = append(keys, Mapping{Key: input[i : i+1]})
+				keys = append(keys, input[i:i+1])
 			}
 		}
 		i++
