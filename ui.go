@@ -34,12 +34,11 @@ type MainPage struct {
 	strimsList    *tview.List
 	twitchList    *tview.List
 
-	focusedList    *tview.List // Can either be strimsList or twitchList
-	streams        *ls.Streams
-	twitchFilter   *FilterInput
-	strimsFilter   *FilterInput
-	lastSearch     string
-	isDoingMapping bool
+	focusedList  *tview.List // Can either be strimsList or twitchList
+	streams      *ls.Streams
+	twitchFilter *FilterInput
+	strimsFilter *FilterInput
+	lastSearch   string
 
 	// :set options
 	strims  bool
