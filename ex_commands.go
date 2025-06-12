@@ -64,6 +64,16 @@ var defaultCommands = []*ExCommand{{
 		}
 	},
 }, {
+	Name:        "echo",
+	Description: "Echo a string to the commandline",
+	Usage:       "e[cho[] {string}",
+	MinArgs:     1,
+	MaxArgs:     math.MaxInt,
+	Execute: func(ui *UI, args []string, bang bool) error {
+		ui.mainPage.commandLine.SetText(strings.Join(args, " "))
+		return nil
+	},
+}, {
 	Name:        "focus",
 	Description: "Focus the window for {list}",
 	Usage:       "fo[cus[] {list=twitch|strims|toggle}",
@@ -101,7 +111,18 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     math.MaxInt,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		return []string{":global//d"}
+		var filter *FilterInput
+		switch ui.mainPage.focusedList {
+		case ui.mainPage.twitchList:
+			filter = ui.mainPage.twitchFilter
+		case ui.mainPage.strimsList:
+			filter = ui.mainPage.strimsFilter
+		}
+		var ret []string
+		if filter.input != "" {
+			ret = append(ret, ":global/"+filter.input+"/d")
+		}
+		return append(ret, ":global//d")
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {
 		return applyFilterFromArg(ui.mainPage, strings.Join(args, " "), bang, false)
@@ -121,8 +142,15 @@ var defaultCommands = []*ExCommand{{
 		return entries
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
+		// TODO: add help entries for:
+		//       "G", "g", "j", "<Down>", "<C-n>", "k", "<Up>", "<C-p>",
+		//       "M", "z", "<C-e>", "<C-y>", "<C-u>", "<C-d>", ":", "/",
+		//       "?"
+		// TODO: add `:set` option entries for:
+		//       "strims", "winopen"
+		// TODO: add info about <C-z> in mappings
 		ui.mainPage.streamInfo.Clear()
-		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n\n"))
+		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n"))
 		switch len(args) {
 		case 0:
 			for _, cmd := range ui.cmdRegistry.commands {
@@ -142,7 +170,7 @@ var defaultCommands = []*ExCommand{{
 	},
 }, {
 	Name:        "map",
-	Description: "map keypress [lhs[] into command [rhs[]. Use <Bar> over | for chaining commands in [rhs[]",
+	Description: "Print mappings or map keypress [lhs[] into command [rhs[]. <Bar> replaces | in mappings",
 	Usage:       "m[ap[] [lhs rhs[]",
 	MinArgs:     0,
 	MaxArgs:     math.MaxInt,
@@ -182,7 +210,6 @@ var defaultCommands = []*ExCommand{{
 		sort.Strings(mappings)
 		ui.mainPage.streamInfo.Clear()
 		ui.mainPage.streamInfo.Write([]byte("--- [orange::b]<C-f>/<C-b> to scroll up/down the window[-::-] ---\n"))
-		ui.mainPage.streamInfo.Write([]byte("  `:normal {key}` commands are equivalent to the respective {key} in vim\n\n"))
 		for _, line := range mappings {
 			ui.mainPage.streamInfo.Write([]byte(line))
 		}
@@ -234,6 +261,20 @@ var defaultCommands = []*ExCommand{{
 		}
 	},
 }, {
+	Name:        "resize",
+	Description: "Resize current window to {size} (default: 1)",
+	Usage:       "r[esize[] {size}",
+	MinArgs:     1,
+	MaxArgs:     1,
+	Execute: func(ui *UI, args []string, bang bool) error {
+		n, err := strconv.Atoi(args[0])
+		if err != nil {
+			return err
+		}
+		ui.mainPage.streamsCon.ResizeItem(ui.mainPage.focusedList, 0, n)
+		return nil
+	},
+}, {
 	Name:        "scrollinfo",
 	Description: "Scroll the stream info window by {direction=up|down}",
 	Usage:       "sc[rollinfo[] {direction}",
@@ -261,20 +302,6 @@ var defaultCommands = []*ExCommand{{
 		return nil
 	},
 }, {
-	Name:        "resize",
-	Description: "Resize current window to {size} (default: 1)",
-	Usage:       "r[esize[] {size}",
-	MinArgs:     1,
-	MaxArgs:     1,
-	Execute: func(ui *UI, args []string, bang bool) error {
-		n, err := strconv.Atoi(args[0])
-		if err != nil {
-			return err
-		}
-		ui.mainPage.streamsCon.ResizeItem(ui.mainPage.focusedList, 0, n)
-		return nil
-	},
-}, {
 	Name:        "sync",
 	Description: "Syncronize all streams on the client side",
 	Usage:       "sy[nc[]",
@@ -290,7 +317,7 @@ var defaultCommands = []*ExCommand{{
 	},
 }, {
 	Name:        "set",
-	Description: "Set [option[] or [no{option}[], ! toggles the value. Available options: strims",
+	Description: "Set [option[] or [no{option}[], ! toggles the value. Available options: strims, winopen",
 	Usage:       "se[t[][![] [option[]",
 	MinArgs:     1,
 	MaxArgs:     1,
@@ -395,7 +422,18 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     math.MaxInt,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		return []string{":vglobal//d"}
+		var filter *FilterInput
+		switch ui.mainPage.focusedList {
+		case ui.mainPage.twitchList:
+			filter = ui.mainPage.twitchFilter
+		case ui.mainPage.strimsList:
+			filter = ui.mainPage.strimsFilter
+		}
+		var ret []string
+		if filter.input != "" {
+			ret = append(ret, ":vglobal/"+filter.input+"/d")
+		}
+		return append(ret, ":vglobal//d")
 	},
 	OnType: func(ui *UI, args []string, bang bool) error {
 		return applyFilterFromArg(ui.mainPage, strings.Join(args, " "), bang, true)

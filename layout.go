@@ -53,7 +53,7 @@ func (ui *UI) setupMainPage() {
 	ui.mainPage.commandRow.AddItem(ui.mainPage.commandLine, 0, 1, true)
 	ui.mainPage.commandRow.AddItem(ui.mainPage.fetchTimeView, 26, 0, false)
 	// CommandLine
-	ui.mainPage.commandLine.SetText(" Please see `:help` or `:map`!")
+	ui.mainPage.commandLine.SetText("Please see `:help` or `:map`!")
 	ui.mainPage.commandLine.SetFieldBackgroundColor(tcell.ColorBlack)
 	ui.mainPage.commandLine.SetChangedFunc(ui.onTypeCommandChain)
 	ui.mainPage.commandLine.SetFinishedFunc(ui.execCommandChainCallback)
