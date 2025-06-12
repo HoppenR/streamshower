@@ -163,10 +163,8 @@ func (r *MappingRegistry) resolveMappings(input string) ([]string, error) {
 					switch key {
 					case "<CR>", "<Esc>":
 						mode = ModeNormal
-						fallthrough
-					default:
-						keys = append(keys, key)
 					}
+					keys = append(keys, key)
 				case ModeNormal:
 					rhs, ok := r.mappings[key]
 					if ok {
