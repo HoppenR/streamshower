@@ -198,6 +198,9 @@ var defaultCommands = []*ExCommand{{
 				}
 				mappings = append(mappings, fmt.Sprintf("[red]%s[-] - %s\n", lhs, rhs))
 			}
+			if len(mappings) == 0 {
+				return fmt.Errorf("no mapping found for %s", args[0])
+			}
 		default:
 			if err := validateMappingKey(args[0]); err != nil {
 				return err

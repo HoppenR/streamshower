@@ -28,11 +28,12 @@ func (m *MainPage) updateTwitchList(filter string) {
 		return
 	}
 	for _, v := range m.twitchFilter.indexMapping {
-		mainstr := highlightSearch(m.streams.Twitch.Data[v].UserName, m.lastSearch)
+		stream := m.streams.Twitch.Data[v]
+		mainstr := highlightSearch(stream.UserName, m.lastSearch)
 		secstr := fmt.Sprintf(
 			" %-6d[green:-:u]%s[-:-:-]",
-			m.streams.Twitch.Data[v].ViewerCount,
-			tview.Escape(m.streams.Twitch.Data[v].GameName),
+			stream.ViewerCount,
+			tview.Escape(stream.GameName),
 		)
 		m.twitchList.AddItem(mainstr, secstr, 0, nil)
 	}
@@ -49,17 +50,18 @@ func (m *MainPage) updateTwitchStreamInfo(tviewIx int, pri, sec string, _ rune) 
 		return
 	}
 	ix := m.twitchFilter.indexMapping[tviewIx]
-	selStream := m.streams.Twitch.Data[ix]
-	startLocal := selStream.StartedAt.Local()
-	if selStream.GameName == "" {
-		selStream.GameName = "[::d]None[::-]"
+	stream := m.streams.Twitch.Data[ix]
+	startLocal := stream.StartedAt.Local()
+	if stream.GameName == "" {
+		stream.GameName = "[::d]None[::-]"
 	}
-	title := strings.ReplaceAll(selStream.Title, "\n", " ")
+	title := strings.ReplaceAll(stream.Title, "\n", " ")
+	title = removeVariationSelectors(title)
 	title = tview.Escape(title)
-	m.streamInfo.SetTitle(selStream.UserName)
+	m.streamInfo.SetTitle(stream.UserName)
 	add(fmt.Sprintf("[red]Title[-]: %s\n", title))
-	add(fmt.Sprintf("[red]Viewers[-]: %d\n", selStream.ViewerCount))
-	add(fmt.Sprintf("[red]Game[-]: %s\n", selStream.GameName))
+	add(fmt.Sprintf("[red]Viewers[-]: %d\n", stream.ViewerCount))
+	add(fmt.Sprintf("[red]Game[-]: %s\n", stream.GameName))
 	add(fmt.Sprintf(
 		"[red]Started At[-]: %2.2d:%2.2d [lightgray](%.0fd %.0fh %0.fm ago)[-]\n",
 		startLocal.Hour(),
@@ -68,8 +70,8 @@ func (m *MainPage) updateTwitchStreamInfo(tviewIx int, pri, sec string, _ rune) 
 		math.Mod(math.Floor(time.Since(startLocal).Hours()), 24),
 		math.Mod(math.Floor(time.Since(startLocal).Minutes()), 60)),
 	)
-	add(fmt.Sprintf("[red]Language[-]: %s\n", selStream.Language))
-	add(fmt.Sprintf("[red]Type[-]: %s\n", selStream.Type))
+	add(fmt.Sprintf("[red]Language[-]: %s\n", stream.Language))
+	add(fmt.Sprintf("[red]Type[-]: %s\n", stream.Type))
 }
 
 func (m *MainPage) matchTwitchListIndex(filter string) []int {

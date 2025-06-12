@@ -67,7 +67,8 @@ func (ui *UI) onTypeCommand(cmd string) error {
 
 // Callback for when a user has manually typed in a command
 func (ui *UI) execCommandChainCallback(key tcell.Key) {
-	if key == tcell.KeyEnter {
+	switch key {
+	case tcell.KeyEnter:
 		cmdLine := ui.mainPage.commandLine.GetText()
 		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
 		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
@@ -75,8 +76,10 @@ func (ui *UI) execCommandChainCallback(key tcell.Key) {
 		if err != nil {
 			ui.mainPage.appStatusText.SetText(err.Error())
 		}
+		fallthrough
+	case tcell.KeyEsc:
+		ui.app.SetFocus(ui.mainPage.focusedList)
 	}
-	ui.app.SetFocus(ui.mainPage.focusedList)
 }
 
 // Execute the command chain from a mapping
@@ -230,4 +233,17 @@ func highlightSearch(text string, search string) string {
 		return text
 	}
 	return text[:idx] + "[red]" + text[idx:idx+len(search)] + "[-]" + text[idx+len(search):]
+}
+
+// Variation selectors seem to cause issues with tview rendering, remove them
+func removeVariationSelectors(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if unicode.Is(unicode.Variation_Selector, r) {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }

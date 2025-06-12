@@ -26,16 +26,17 @@ func (m *MainPage) updateStrimsList(filter string) {
 		return
 	}
 	for _, v := range m.strimsFilter.indexMapping {
-		mainstr := highlightSearch(m.streams.Strims.Data[v].Channel, m.lastSearch)
+		stream := m.streams.Strims.Data[v]
+		mainstr := highlightSearch(stream.Channel, m.lastSearch)
 		secColor := "green"
-		if m.streams.Strims.Data[v].Nsfw {
+		if stream.Nsfw {
 			secColor = "red"
 		}
 		secstr := fmt.Sprintf(
 			" %-6d[%s:-:u]%s[-:-:-]",
-			m.streams.Strims.Data[v].Rustlers,
+			stream.Rustlers,
 			secColor,
-			tview.Escape(m.streams.Strims.Data[v].Title),
+			tview.Escape(stream.Title),
 		)
 		m.strimsList.AddItem(mainstr, secstr, 0, nil)
 	}
@@ -52,21 +53,22 @@ func (m *MainPage) updateStrimsStreamInfo(tviewIx int, pri, sec string, _ rune) 
 		return
 	}
 	ix := m.strimsFilter.indexMapping[tviewIx]
-	selStream := m.streams.Strims.Data[ix]
+	stream := m.streams.Strims.Data[ix]
 	var title string
-	if selStream.Service == "m3u8" {
-		title = selStream.URL
+	if stream.Service == "m3u8" {
+		title = stream.URL
 	} else {
-		title = strings.ReplaceAll(selStream.Title, "\n", " ")
+		title = strings.ReplaceAll(stream.Title, "\n", " ")
 	}
+	title = removeVariationSelectors(title)
 	title = tview.Escape(title)
-	m.streamInfo.SetTitle(selStream.Channel)
+	m.streamInfo.SetTitle(stream.Channel)
 	add(fmt.Sprintf("[red]Title[-]: %s\n", title))
-	add(fmt.Sprintf("[red]Rustlers[-]: %d [lightgray](%d afk)[-]\n", selStream.Rustlers, selStream.AfkRustlers))
-	add(fmt.Sprintf("[red]Service[-]: %s\n", selStream.Service))
-	add(fmt.Sprintf("[red]Viewers[-]: %v\n", selStream.Viewers))
-	add(fmt.Sprintf("[red]Live[-]: %v\n", selStream.Live))
-	add(fmt.Sprintf("[red]AFK[-]: %v\n", selStream.Afk))
+	add(fmt.Sprintf("[red]Rustlers[-]: %d [lightgray](%d afk)[-]\n", stream.Rustlers, stream.AfkRustlers))
+	add(fmt.Sprintf("[red]Service[-]: %s\n", stream.Service))
+	add(fmt.Sprintf("[red]Viewers[-]: %v\n", stream.Viewers))
+	add(fmt.Sprintf("[red]Live[-]: %v\n", stream.Live))
+	add(fmt.Sprintf("[red]AFK[-]: %v\n", stream.Afk))
 }
 
 func (ui *UI) toggleStrimsList() {
