@@ -38,14 +38,7 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		methods := []string{"chat", "embed", "homepage", "mpv", "strims"}
-		var matches []string
-		for _, method := range methods {
-			if strings.HasPrefix(method, s) {
-				matches = append(matches, ":copyurl "+method)
-			}
-		}
-		return matches
+		return matchCompletion(s, ":copyurl ", []string{"chat", "embed", "homepage", "mpv", "strims"})
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
 		switch args[0] {
@@ -80,14 +73,7 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		lists := []string{"strims", "toggle", "twitch"}
-		var entries []string
-		for _, list := range lists {
-			if strings.HasPrefix(list, s) {
-				entries = append(entries, ":focus "+list)
-			}
-		}
-		return entries
+		return matchCompletion(s, ":focus ", []string{"strims", "toggle", "twitch"})
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
 		if args[0] == "twitch" || (args[0] == "toggle" && ui.mainPage.focusedList == ui.mainPage.strimsList) {
@@ -256,14 +242,7 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		methods := []string{"chat", "embed", "homepage", "mpv", "strims"}
-		var matches []string
-		for _, method := range methods {
-			if strings.HasPrefix(method, s) {
-				matches = append(matches, ":open "+method)
-			}
-		}
-		return matches
+		return matchCompletion(s, ":open ", []string{"chat", "embed", "homepage", "mpv", "strims"})
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
 		switch args[0] {
@@ -305,14 +284,7 @@ var defaultCommands = []*ExCommand{{
 	MinArgs:     1,
 	MaxArgs:     1,
 	Complete: func(ui *UI, s string, bang bool) []string {
-		methods := []string{"down", "up"}
-		var matches []string
-		for _, method := range methods {
-			if strings.HasPrefix(method, s) {
-				matches = append(matches, ":scrollinfo "+method)
-			}
-		}
-		return matches
+		return matchCompletion(s, ":scrollinfo ", []string{"down", "up"})
 	},
 	Execute: func(ui *UI, args []string, bang bool) error {
 		switch args[0] {
@@ -508,3 +480,13 @@ var defaultCommands = []*ExCommand{{
 		return nil
 	},
 }}
+
+func matchCompletion(s string, prefix string, options []string) []string {
+	var matches []string
+	for _, method := range options {
+		if strings.HasPrefix(method, s) {
+			matches = append(matches, prefix+method)
+		}
+	}
+	return matches
+}
