@@ -16,29 +16,33 @@ func (ui *UI) listInputHandler(event *tcell.EventKey) *tcell.EventKey {
 	var lhs, rhs string
 	lhs = encodeMappingKey(event)
 	switch lhs {
-	case "G":
-		ui.moveBot()
-	case "g":
-		ui.moveTop()
-	case "j", "<Down>", "<C-n>":
-		ui.moveDown()
-	case "k", "<Up>", "<C-p>":
-		ui.moveUp()
-	case "M":
-		ui.moveMid()
-	case "z":
-		ui.redrawMid()
-	case "<C-e>":
-		ui.redrawUp()
-	case "<C-y>":
-		ui.redrawDown()
-	case "<C-u>":
-		ui.movePgUp()
-	case "<C-d>":
-		ui.movePgDown()
-	case ":", "/", "?":
+	case "/", ":", "?":
 		ui.mainPage.commandLine.SetText(lhs)
 		ui.app.SetFocus(ui.mainPage.commandLine)
+	case "<C-d>":
+		ui.movePgDown()
+	case "<C-e>":
+		ui.redrawUp()
+	case "<C-n>", "<Down>", "j":
+		ui.moveDown()
+	case "<C-p>", "<Up>", "k":
+		ui.moveUp()
+	case "<C-u>":
+		ui.movePgUp()
+	case "<C-y>":
+		ui.redrawDown()
+	case "G":
+		ui.moveBot()
+	case "M":
+		ui.moveMid()
+	case "N":
+		ui.searchPrev()
+	case "g":
+		ui.moveTop()
+	case "n":
+		ui.searchNext()
+	case "z":
+		ui.redrawMid()
 	}
 	if ui.mapDepth > 0 {
 		ui.mapDepth--
