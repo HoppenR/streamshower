@@ -80,9 +80,9 @@ func (ui *UI) execCommandChainCallback(key tcell.Key) {
 }
 
 // Execute the command chain from a mapping
-func (ui *UI) execCommandChainMapping(keyStrings []Mapping) error {
+func (ui *UI) execCommandChainMapping(keyStrings []string) error {
 	for _, mapping := range keyStrings {
-		k, err := parseMappingKey(mapping.Key)
+		k, err := parseMappingKey(mapping)
 		if err != nil {
 			return err
 		}
