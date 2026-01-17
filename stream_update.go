@@ -54,9 +54,11 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		setStatus("orange", "Fetching streams...")
 		var streams *ls.Streams
 		streams, err = updateStreams(ctx, ui.addr)
+
+		var re *ls.RedirectError
 		if errors.Is(err, context.Canceled) {
 			return
-		} else if errors.Is(err, ls.ErrAuthPending) {
+		} else if errors.As(err, &re) {
 			setStatus("yellow", "run `:sync` to refresh after authenticating")
 			continue
 		} else if err != nil {
