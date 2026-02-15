@@ -1,0 +1,49 @@
+{
+  description = "Official Flake for Streamshower";
+
+  inputs = {
+    nixpkgs.url = "github:Nixos/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
+    let
+      build-pkg =
+        pkgs:
+        pkgs.buildGoModule {
+          pname = "streamshower";
+          version = "0.1.0";
+          src = ./.;
+          vendorHash = "sha256-N7jvv1Wlt5BpMvOKdsJSX5/Vxe7SSVnDJn1qMbmrcCg=";
+          meta = {
+            description = "Go-based tui for streamserver";
+            homepage = "https://github.com/HoppenR/streamshower";
+            mainProgram = "streamshower";
+          };
+        };
+
+      outputs = flake-utils.lib.eachDefaultSystem (
+        system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+        in
+        {
+          packages = rec {
+            streamshower = build-pkg pkgs;
+            default = streamshower;
+          };
+        }
+      );
+    in
+    outputs
+    // {
+      overlays.default = final: prev: {
+        streamshower = self.packages.${final.stdenv.hostPlatform.system}.default;
+      };
+    };
+}

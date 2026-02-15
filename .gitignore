@@ -1,3 +1,8 @@
 makefile
-streamshower
+streamserver
 .env
+
+# Nix related
+.envrc
+.direnv
+_nix_profile*
