@@ -37,6 +37,19 @@
             streamshower = build-pkg pkgs;
             default = streamshower;
           };
+
+          devShells.default = pkgs.mkShellNoCC {
+            buildInputs = with pkgs; [
+              go
+              gofumpt
+              gopls
+            ];
+
+            shellHook = /* bash */ ''
+              export STREAMSHOWER_HOME=$(git rev-parse --show-toplevel) || exit
+              export XDG_CONFIG_DIRS="$STREAMSHOWER_HOME/.nvim_config:$XDG_CONFIG_DIRS"
+            '';
+          };
         }
       );
     in
