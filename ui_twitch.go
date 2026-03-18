@@ -41,7 +41,7 @@ func (m *MainPage) updateTwitchList(filter string) {
 
 func (m *MainPage) updateTwitchStreamInfo(tviewIx int, pri, sec string, _ rune) {
 	add := func(c string) {
-		m.streamInfo.Write([]byte(c))
+		_, _ = m.streamInfo.Write([]byte(c))
 	}
 	m.streamInfo.Clear()
 	if m.twitchFilter.indexMapping == nil {
@@ -84,7 +84,7 @@ func (m *MainPage) matchTwitchListIndex(filter string) []int {
 		return ixs
 	}
 	for i, v := range m.streams.Twitch.Data {
-		var match func(string) bool = re.MatchString
+		match := re.MatchString
 		matched := match(v.GameName) || match(v.Title) || match(v.UserName)
 		if matched != m.twitchFilter.inverted {
 			ixs = append(ixs, i)

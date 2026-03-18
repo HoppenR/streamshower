@@ -10,16 +10,15 @@ import (
 )
 
 type UI struct {
-	app         *tview.Application
-	mainPage    *MainPage
-	addr        string
-	cmdRegistry *CommandRegistry
-	mapRegistry *MappingRegistry
-	mapDepth    int
-
+	app                 *tview.Application
+	mainPage            *MainPage
+	cmdRegistry         *CommandRegistry
+	mapRegistry         *MappingRegistry
 	updateStreamsCh     chan struct{}
 	forceRemoteUpdateCh chan struct{}
+	addr                string
 	wg                  sync.WaitGroup
+	mapDepth            int
 }
 
 type MainPage struct {
@@ -47,8 +46,8 @@ type MainPage struct {
 
 type FilterInput struct {
 	input        string
-	inverted     bool
 	indexMapping []int
+	inverted     bool
 }
 
 func (ui *UI) SetAddress(address string) *UI {

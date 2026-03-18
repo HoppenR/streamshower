@@ -71,7 +71,7 @@ func (ui *UI) setupMainPage() {
 func (ui *UI) updateLastFetched(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 	if !ui.mainPage.streams.LastFetched.IsZero() {
 		ui.mainPage.fetchTimeView.Clear()
-		ui.mainPage.fetchTimeView.Write(fmt.Appendf(
+		_, _ = ui.mainPage.fetchTimeView.Write(fmt.Appendf(
 			nil,
 			"%s (update in %.0fs) ",
 			ui.mainPage.streams.LastFetched.In(time.Local).Format(time.TimeOnly),

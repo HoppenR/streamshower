@@ -44,7 +44,7 @@ func (m *MainPage) updateStrimsList(filter string) {
 
 func (m *MainPage) updateStrimsStreamInfo(tviewIx int, pri, sec string, _ rune) {
 	add := func(c string) {
-		m.streamInfo.Write([]byte(c))
+		_, _ = m.streamInfo.Write([]byte(c))
 	}
 	m.streamInfo.Clear()
 	if m.strimsFilter.indexMapping == nil {
@@ -103,7 +103,7 @@ func (m *MainPage) matchStrimsListIndex(filter string) []int {
 		return ixs
 	}
 	for i, v := range m.streams.Strims.Data {
-		var match func(string) bool = re.MatchString
+		match := re.MatchString
 		matched := match(v.Service) || match(v.Title) || match(v.Channel)
 		if matched != m.strimsFilter.inverted {
 			ixs = append(ixs, i)

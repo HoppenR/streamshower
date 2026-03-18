@@ -26,8 +26,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 	defer redrawTimer.Stop()
 	for {
 		if !ui.mainPage.streams.LastFetched.IsZero() {
-			var nextUpdate time.Time
-			nextUpdate = ui.mainPage.streams.LastFetched.Add(ui.mainPage.streams.RefreshInterval)
+			nextUpdate := ui.mainPage.streams.LastFetched.Add(ui.mainPage.streams.RefreshInterval)
 			fetchTimer.Reset(time.Until(nextUpdate))
 		}
 		select {
@@ -107,7 +106,7 @@ func forceRemoteUpdate(ctx context.Context, addr string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	err = resp.Body.Close()
 
-	return nil
+	return err
 }

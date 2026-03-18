@@ -12,7 +12,8 @@ func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) boo
 	if ui.mapDepth > 0 {
 		return false
 	}
-	if source == tview.AutocompletedEnter {
+	switch source {
+	case tview.AutocompletedEnter:
 		ui.cmdRegistry.history = append(ui.cmdRegistry.history, cmdLine)
 		ui.cmdRegistry.histIndex = len(ui.cmdRegistry.history)
 		ui.mainPage.commandLine.SetText(cmdLine)
@@ -23,7 +24,7 @@ func (ui *UI) commandLineCompleteDone(cmdLine string, index int, source int) boo
 		}
 		ui.app.SetFocus(ui.mainPage.focusedList)
 		return true
-	} else if source == tview.AutocompletedTab {
+	case tview.AutocompletedTab:
 		// Move cursor into the regex pattern if completion ~=
 		// :v?global/.*/[dp]
 		if (strings.HasPrefix(cmdLine, ":global/") || strings.HasPrefix(cmdLine, ":vglobal/")) &&

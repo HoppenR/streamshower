@@ -18,12 +18,12 @@ import (
 
 type OpenMethod int
 
-type UrlTemplateSource struct {
-	MethodTemplates map[string]UrlTemplates
-	DefaultTemplate *UrlTemplates
+type URLTemplateSource struct {
+	MethodTemplates map[string]URLTemplates
+	DefaultTemplate *URLTemplates
 }
 
-type UrlTemplates struct {
+type URLTemplates struct {
 	Host   string
 	Path   string
 	Query  Values
@@ -40,22 +40,22 @@ const (
 	lnkOpenChat
 )
 
-var urlBuilders = map[OpenMethod]UrlTemplateSource{
-	lnkOpenEmbed: {MethodTemplates: map[string]UrlTemplates{
+var urlBuilders = map[OpenMethod]URLTemplateSource{
+	lnkOpenEmbed: {MethodTemplates: map[string]URLTemplates{
 		"angelthump": {Host: "player.angelthump.com", Query: Values{"channel": "{{.NameI}}"}},
 		"m3u8":       {Host: "strims.gg", Path: "m3u8/{{.Name}}"},
 		"twitch":     {Host: "player.twitch.tv", Query: Values{"channel": "{{.NameI}}", "parent": "strims.gg"}},
 		"twitch-vod": {Host: "player.twitch.tv", Query: Values{"video": "v{{.Name}}", "parent": "strims.gg"}},
 		"youtube":    {Host: "www.youtube.com", Path: "embed/{{.Name}}", Query: Values{"autoplay": "true"}},
 	}},
-	lnkOpenHomePage: {MethodTemplates: map[string]UrlTemplates{
+	lnkOpenHomePage: {MethodTemplates: map[string]URLTemplates{
 		"angelthump": {Host: "angelthump.com", Path: "{{.NameI}}"},
 		"m3u8":       {Host: "strims.gg", Path: "m3u8/{{.Name}}"},
 		"twitch":     {Host: "www.twitch.tv", Path: "{{.NameI}}"},
 		"twitch-vod": {Host: "www.twitch.tv", Path: "videos/{{.Name}}"},
 		"youtube":    {Host: "www.youtube.com", Path: "watch", Query: Values{"v": "{{.Name}}"}},
 	}},
-	lnkOpenMpv: {MethodTemplates: map[string]UrlTemplates{
+	lnkOpenMpv: {MethodTemplates: map[string]URLTemplates{
 		"angelthump": {Host: "ams-haproxy.angelthump.com", Path: "hls/{{.Name}}/index.m3u8"},
 		"m3u8":       {RawURL: "{{.Name}}"},
 		"twitch":     {Host: "www.twitch.tv", Path: "{{.NameI}}"},
@@ -63,13 +63,13 @@ var urlBuilders = map[OpenMethod]UrlTemplateSource{
 		"youtube":    {Host: "www.youtube.com", Path: "watch", Query: Values{"v": "{{.Name}}"}},
 	}},
 	lnkOpenStrims: {
-		DefaultTemplate: &UrlTemplates{Host: "strims.gg", Path: "{{.Service}}/{{.NameI}}"},
+		DefaultTemplate: &URLTemplates{Host: "strims.gg", Path: "{{.Service}}/{{.NameI}}"},
 	},
 	lnkOpenChat: {
-		MethodTemplates: map[string]UrlTemplates{
+		MethodTemplates: map[string]URLTemplates{
 			"twitch": {Host: "www.twitch.tv", Path: "popout/{{.NameI}}/chat"},
 		},
-		DefaultTemplate: &UrlTemplates{Host: "chat.strims.gg"},
+		DefaultTemplate: &URLTemplates{Host: "chat.strims.gg"},
 	},
 }
 
@@ -78,7 +78,7 @@ func (ui *UI) openSelectedStream(method OpenMethod) error {
 	if err != nil {
 		return err
 	}
-	url, err := streamToUrl(data, method)
+	url, err := streamToURL(data, method)
 	if err != nil {
 		return err
 	}
@@ -105,12 +105,11 @@ func (ui *UI) copySelectedStreamToClipboard(method OpenMethod) error {
 	if err != nil {
 		return err
 	}
-	url, err := streamToUrl(data, method)
+	url, err := streamToURL(data, method)
 	if err != nil {
 		return err
 	}
 	return exec.Command("wl-copy", url.String()).Run()
-
 }
 
 func (ui *UI) getSelectedStreamData() (ls.StreamData, error) {
@@ -138,7 +137,7 @@ func (ui *UI) getSelectedStreamData() (ls.StreamData, error) {
 	return nil, errors.New("cannot open empty result")
 }
 
-func streamToUrl(data ls.StreamData, method OpenMethod) (*url.URL, error) {
+func streamToURL(data ls.StreamData, method OpenMethod) (*url.URL, error) {
 	tmplSrc, ok := urlBuilders[method]
 	if !ok {
 		return nil, errors.New("unsupported method")
@@ -154,7 +153,7 @@ func streamToUrl(data ls.StreamData, method OpenMethod) (*url.URL, error) {
 	return nil, errors.New("template source incomplete")
 }
 
-func (ut *UrlTemplates) apply(data ls.StreamData) (*url.URL, error) {
+func (ut *URLTemplates) apply(data ls.StreamData) (*url.URL, error) {
 	if ut.RawURL != "" {
 		raw, err := executeTemplateString(ut.RawURL, data)
 		if err != nil {

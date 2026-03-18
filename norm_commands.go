@@ -6,8 +6,8 @@ import (
 )
 
 type BuiltinHelp struct {
-	Names       []string
 	Description string
+	Names       []string
 }
 
 var builtinHelps = []BuiltinHelp{

@@ -33,8 +33,8 @@ func (ui *UI) onTypeCommandChain(cmdLine string) {
 }
 
 func (ui *UI) onTypeCommand(cmd string) error {
-	if strings.HasPrefix(cmd, ":") {
-		cmd = strings.TrimPrefix(cmd, ":")
+	if after, ok :=strings.CutPrefix(cmd, ":"); ok  {
+		cmd = after
 		namepart, args, bang := parseCommandParts(cmd)
 		if namepart == "" {
 			return nil
@@ -55,10 +55,10 @@ func (ui *UI) onTypeCommand(cmd string) error {
 			}
 		}
 		return nil
-	} else if strings.HasPrefix(cmd, "/") {
-		ui.mainPage.lastSearch = strings.TrimPrefix(cmd, "/")
-	} else if strings.HasPrefix(cmd, "?") {
-		ui.mainPage.lastSearch = strings.TrimPrefix(cmd, "?")
+	} else if after, ok := strings.CutPrefix(cmd, "/"); ok {
+		ui.mainPage.lastSearch = after
+	} else if after, ok := strings.CutPrefix(cmd, "?"); ok {
+		ui.mainPage.lastSearch = after
 	}
 	ui.mainPage.refreshTwitchList()
 	ui.mainPage.refreshStrimsList()
@@ -121,8 +121,8 @@ func (ui *UI) execCommand(cmdLine string) error {
 	if cmdLine == "" {
 		return nil
 	}
-	if strings.HasPrefix(cmdLine, ":") {
-		cmdLine = strings.TrimPrefix(cmdLine, ":")
+	if after, ok := strings.CutPrefix(cmdLine, ":"); ok {
+		cmdLine = after
 		namepart, args, bang := parseCommandParts(cmdLine)
 		if namepart == "" {
 			return nil
@@ -133,9 +133,9 @@ func (ui *UI) execCommand(cmdLine string) error {
 			return fmt.Errorf("[red]Unknown command: %s[-]", namepart)
 		case 1:
 			if len(args) < possible[0].MinArgs {
-				return fmt.Errorf("Argument required for command: %s", possible[0].Name)
+				return fmt.Errorf("argument required for command: %s", possible[0].Name)
 			} else if len(args) > possible[0].MaxArgs {
-				return fmt.Errorf("Trailing characters: %s", strings.Join(args, " "))
+				return fmt.Errorf("trailing characters: %s", strings.Join(args, " "))
 			}
 			if possible[0].Execute != nil {
 				err := possible[0].Execute(ui, args, bang)
