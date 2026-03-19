@@ -34,7 +34,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 			return
 		case <-ui.forceRemoteUpdateCh:
 			setStatus("orange", "Sending update...")
-			err = forceRemoteUpdate(ctx, ui.addr)
+			err = forceRemoteUpdate(ctx, ui.addr.String())
 			if errors.Is(err, context.Canceled) {
 				return
 			} else if err != nil {
@@ -52,7 +52,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 
 		setStatus("orange", "Fetching streams...")
 		var streams *ls.Streams
-		streams, err = updateStreams(ctx, ui.addr)
+		streams, err = updateStreams(ctx, ui.addr.String())
 
 		var re *ls.RedirectError
 		if errors.Is(err, context.Canceled) {

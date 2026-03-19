@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/url"
 	"sync"
 
 	ls "github.com/HoppenR/libstreams"
@@ -16,7 +18,7 @@ type UI struct {
 	mapRegistry         *MappingRegistry
 	updateStreamsCh     chan struct{}
 	forceRemoteUpdateCh chan struct{}
-	addr                string
+	addr                *url.URL
 	wg                  sync.WaitGroup
 	mapDepth            int
 }
@@ -50,9 +52,21 @@ type FilterInput struct {
 	inverted     bool
 }
 
-func (ui *UI) SetAddress(address string) *UI {
-	ui.addr = address
-	return ui
+func (ui *UI) SetAddress(rawAddr string) error {
+	u, err := url.Parse(rawAddr)
+	if err != nil {
+		return err
+	}
+	ui.addr = u
+	return nil
+}
+
+func (ui *UI) SetBasicAuthCredentials(user, pass string) error {
+	if ui.addr == nil {
+		return errors.New("tried adding user and password to invalid address")
+	}
+	ui.addr.User = url.UserPassword(user, pass)
+	return nil
 }
 
 func NewUI() *UI {

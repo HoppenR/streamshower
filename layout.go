@@ -38,7 +38,7 @@ func (ui *UI) setupMainPage() {
 	// ErrorInfo
 	ui.mainPage.infoCon.AddItem(ui.mainPage.appStatusText, 3, 0, false)
 	ui.mainPage.appStatusText.SetBackgroundColor(tcell.ColorDefault)
-	ui.mainPage.appStatusText.SetTitle("Status (" + ui.addr + ")")
+	ui.mainPage.appStatusText.SetTitle("Status (" + ui.addr.Redacted() + ")")
 	ui.mainPage.appStatusText.SetBorder(true)
 	ui.mainPage.appStatusText.SetDynamicColors(true)
 	ui.mainPage.appStatusText.SetTextAlign(tview.AlignCenter)
