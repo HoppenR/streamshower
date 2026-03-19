@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os/exec"
 	"sort"
 	"time"
 
@@ -25,10 +27,6 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 	redrawTimer := time.NewTicker(time.Second)
 	defer redrawTimer.Stop()
 	for {
-		if !ui.mainPage.streams.LastFetched.IsZero() {
-			nextUpdate := ui.mainPage.streams.LastFetched.Add(ui.mainPage.streams.RefreshInterval)
-			fetchTimer.Reset(time.Until(nextUpdate))
-		}
 		select {
 		case <-ctx.Done():
 			return
@@ -45,6 +43,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 			ui.app.Draw()
 			continue
 		case <-ui.updateStreamsCh:
+			fetchTimer.Stop()
 			// pass
 		case <-fetchTimer.C:
 			// pass
@@ -54,17 +53,38 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		var streams *ls.Streams
 		streams, err = updateStreams(ctx, ui.addr.String())
 
-		var re *ls.RedirectError
+		var redirectErr *ls.RedirectError
 		if errors.Is(err, context.Canceled) {
 			return
-		} else if errors.As(err, &re) {
+		} else if errors.As(err, &redirectErr) {
+			var absoluteURL *url.URL
+			absoluteURL, err = url.Parse(redirectErr.Location)
+			if err != nil {
+				setStatus("red", "invalid redirect location")
+				continue
+			}
+			if absoluteURL.Scheme != "http" && absoluteURL.Scheme != "https" {
+				setStatus("red", "refusing to redirect to non-web scheme")
+				continue
+			}
+			cmd := exec.Command("xdg-open", redirectErr.Location)
+			err = cmd.Start()
+			if err != nil {
+				setStatus("red", "Could not launch xdg-open")
+				continue
+			}
 			setStatus("yellow", "run `:sync` to refresh after authenticating")
+			go func() {
+				_ = cmd.Wait()
+			}()
 			continue
 		} else if err != nil {
 			setStatus("red", fmt.Sprintf("Error fetching: %s", err))
+			fetchTimer.Reset(time.Minute)
 			continue
 		}
 		ui.mainPage.streams = streams
+		fetchTimer.Reset(ui.mainPage.streams.RefreshInterval)
 
 		ui.app.QueueUpdate(func() {
 			ui.mainPage.refreshTwitchList()
@@ -99,7 +119,6 @@ func forceRemoteUpdate(ctx context.Context, addr string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/octet-stream")
 
 	var resp *http.Response
 	resp, err = http.DefaultClient.Do(req)
