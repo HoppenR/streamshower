@@ -28,3 +28,9 @@ go to beginning of line, ctrl-e to go to end of line etc
 `r` to force the server to refresh data
 
 `q` to quit
+
+## Basic Auth
+
+If the endpoint requires basic authentication you can define
+STREAMS_BASIC_AUTH_PASS and STREAMS_BASIC_AUTH_USER environment variables for
+streamshower to use while connecting.
