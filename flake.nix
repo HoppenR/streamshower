@@ -19,7 +19,7 @@
           pname = "streamshower";
           version = "0.1.0";
           src = ./.;
-          vendorHash = "sha256-N7jvv1Wlt5BpMvOKdsJSX5/Vxe7SSVnDJn1qMbmrcCg=";
+          vendorHash = "sha256-QM3zLWxVm54WriodBYy0fF0Iq/8wcM1RuORDP1zii8E=";
           meta = {
             description = "Go-based tui for streamserver";
             homepage = "https://github.com/HoppenR/streamshower";
