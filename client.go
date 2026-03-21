@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -41,8 +40,6 @@ func updateStreams(ctx context.Context, lastMeta *ResponseMetadata, addr string)
 	if err != nil {
 		return nil, meta, err
 	}
-	sort.Sort(sort.Reverse(streams.Twitch))
-	sort.Sort(sort.Reverse(streams.Strims))
 	return streams, meta, nil
 }
 
