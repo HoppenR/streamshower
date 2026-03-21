@@ -21,6 +21,7 @@ type UI struct {
 	addr                *url.URL
 	wg                  sync.WaitGroup
 	mapDepth            int
+	fetchMeta           *ResponseMetadata
 }
 
 type MainPage struct {

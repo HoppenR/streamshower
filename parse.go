@@ -33,7 +33,7 @@ func (ui *UI) onTypeCommandChain(cmdLine string) {
 }
 
 func (ui *UI) onTypeCommand(cmd string) error {
-	if after, ok :=strings.CutPrefix(cmd, ":"); ok  {
+	if after, ok := strings.CutPrefix(cmd, ":"); ok {
 		cmd = after
 		namepart, args, bang := parseCommandParts(cmd)
 		if namepart == "" {

@@ -69,13 +69,13 @@ func (ui *UI) setupMainPage() {
 }
 
 func (ui *UI) updateLastFetched(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-	if !ui.mainPage.streams.LastFetched.IsZero() {
+	if ui.fetchMeta != nil && !ui.fetchMeta.LastModified.IsZero() {
 		ui.mainPage.fetchTimeView.Clear()
 		_, _ = ui.mainPage.fetchTimeView.Write(fmt.Appendf(
 			nil,
 			"%s (update in %.0fs) ",
-			ui.mainPage.streams.LastFetched.In(time.Local).Format(time.TimeOnly),
-			time.Until(ui.mainPage.streams.LastFetched.Add(ui.mainPage.streams.RefreshInterval)).Seconds(),
+			ui.fetchMeta.LastModified.In(time.Local).Format(time.TimeOnly),
+			time.Until(ui.fetchMeta.LastModified.Add(ui.fetchMeta.RefreshInterval)).Seconds(),
 		))
 	}
 	return x, y, width, height

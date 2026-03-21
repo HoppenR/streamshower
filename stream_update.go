@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"os/exec"
-	"sort"
 	"time"
 
 	ls "github.com/HoppenR/libstreams"
@@ -22,7 +20,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 	defer ui.wg.Done()
 
 	var err error
-	fetchTimer := time.NewTimer(0)
+	fetchTimer := time.NewTimer(100 * time.Millisecond)
 	defer fetchTimer.Stop()
 	redrawTimer := time.NewTicker(time.Second)
 	defer redrawTimer.Stop()
@@ -40,7 +38,7 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 			}
 			continue
 		case <-redrawTimer.C:
-			ui.app.Draw()
+			ui.app.QueueUpdateDraw(func() {})
 			continue
 		case <-ui.updateStreamsCh:
 			fetchTimer.Stop()
@@ -50,12 +48,25 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 		}
 
 		setStatus("orange", "Fetching streams...")
-		var streams *ls.Streams
-		streams, err = updateStreams(ctx, ui.addr.String())
+		var (
+			streams *ls.Streams
+			meta    *ResponseMetadata
+		)
+		streams, meta, err = updateStreams(ctx, ui.fetchMeta, ui.addr.String())
 
-		var redirectErr *ls.RedirectError
+		var redirectErr *RedirectError
 		if errors.Is(err, context.Canceled) {
 			return
+		} else if errors.Is(err, ErrStreamsNotModified) {
+			ui.fetchMeta = meta
+			setStatus("green", fmt.Sprintf(
+				"No updates (%d Twitch streams and %d Strims streams)",
+				ui.mainPage.streams.Twitch.Len(),
+				ui.mainPage.streams.Strims.Len(),
+			))
+			nextUpdate := ui.fetchMeta.LastModified.Add(ui.fetchMeta.RefreshInterval)
+			fetchTimer.Reset(time.Until(nextUpdate))
+			continue
 		} else if errors.As(err, &redirectErr) {
 			var absoluteURL *url.URL
 			absoluteURL, err = url.Parse(redirectErr.Location)
@@ -84,7 +95,9 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 			continue
 		}
 		ui.mainPage.streams = streams
-		fetchTimer.Reset(ui.mainPage.streams.RefreshInterval)
+		ui.fetchMeta = meta
+		nextUpdate := ui.fetchMeta.LastModified.Add(ui.fetchMeta.RefreshInterval)
+		fetchTimer.Reset(time.Until(nextUpdate))
 
 		ui.app.QueueUpdate(func() {
 			ui.mainPage.refreshTwitchList()
@@ -96,36 +109,4 @@ func (ui *UI) streamUpdateLoop(ctx context.Context) {
 			ui.mainPage.streams.Strims.Len(),
 		))
 	}
-}
-
-func updateStreams(ctx context.Context, addr string) (*ls.Streams, error) {
-	ctxTo, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	streams, err := ls.GetServerData(ctxTo, addr)
-	if err != nil {
-		return nil, err
-	}
-	sort.Sort(sort.Reverse(streams.Twitch))
-	sort.Sort(sort.Reverse(streams.Strims))
-	return streams, nil
-}
-
-func forceRemoteUpdate(ctx context.Context, addr string) error {
-	ctxTo, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctxTo, http.MethodPost, addr, nil)
-	if err != nil {
-		return err
-	}
-
-	var resp *http.Response
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	err = resp.Body.Close()
-
-	return err
 }

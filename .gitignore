@@ -1,5 +1,5 @@
 makefile
-streamserver
+streamshower
 .env
 
 # Nix related
