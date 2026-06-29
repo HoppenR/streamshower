@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
@@ -172,7 +173,8 @@ func (ut *URLTemplates) apply(data ls.StreamData) (*url.URL, error) {
 	}
 	newValues := make(url.Values, len(ut.Query))
 	for key, value := range ut.Query {
-		newParam, err := executeTemplateString(value, data)
+		var newParam string
+		newParam, err = executeTemplateString(value, data)
 		if err != nil {
 			return nil, err
 		}
@@ -180,8 +182,7 @@ func (ut *URLTemplates) apply(data ls.StreamData) (*url.URL, error) {
 	}
 	url := &url.URL{
 		Scheme:   "https",
-		Host:     newHost,
-		Path:     newPath,
+		Opaque:   fmt.Sprintf("//%s/%s", newHost, newPath),
 		RawQuery: newValues.Encode(),
 	}
 	return url, nil
